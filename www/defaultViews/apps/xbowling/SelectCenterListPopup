@@ -1,0 +1,267 @@
+<script type="text/javascript">
+    (function (selectCenterListPopup) {
+        selectCenterListPopup.MODE = {
+            COUNTRY: 1,
+            STATE: 2,
+            VENUE: 3
+        },
+
+        selectCenterListPopup.viewModel = function (mode) {
+            this.mode = ko.observable(mode);
+            this.popupTitle = ko.computed(function () {
+                switch (this.mode()) {
+                    case selectCenterListPopup.MODE.COUNTRY:
+                        return "Select Country";
+
+                    case selectCenterListPopup.MODE.STATE:
+                        return "Select State";
+
+                    case selectCenterListPopup.MODE.VENUE:
+                        return "Select Center";
+
+                    default:
+                        return "";
+                }
+            }, this);
+            this.countries = ko.observableArray();
+            this.country = ko.observable();
+            this.states = ko.observableArray();
+            this.state = ko.observable();
+            this.venues = ko.observableArray();
+        },
+
+        selectCenterListPopup.load = function () {
+            var elm = jQuery(this);
+
+            var mode;
+            var viewParams = scn.popup.getViewModel(this);
+            if (viewParams.mode) {
+                var viewParamsMode = viewParams.mode.toLowerCase();
+                if (viewParamsMode == "country") {
+                    mode = selectCenterListPopup.MODE.COUNTRY;
+                } else if (viewParamsMode == "state") {
+                    mode = selectCenterListPopup.MODE.STATE;
+                } else if (viewParamsMode == "venue") {
+                    mode = selectCenterListPopup.MODE.VENUE;
+                }
+            }
+
+            if (!mode) {
+                throw "Invalid Mode";
+            }
+
+            var viewModel = new selectCenterListPopup.viewModel(mode);
+            viewModel.mode(mode);
+            viewModel.country(viewParams.country);
+            viewModel.state(viewParams.state);
+            ko.applyBindings(viewModel, elm.get(0));
+
+            if (mode == selectCenterListPopup.MODE.COUNTRY) {
+                selectCenterListPopup.loadCountries(viewModel, elm);
+            } else if (mode == selectCenterListPopup.MODE.STATE) {
+                selectCenterListPopup.loadStates(viewModel, elm);
+            } else if (mode == selectCenterListPopup.MODE.VENUE) {
+                selectCenterListPopup.loadVenues(viewModel, elm);
+            }
+        },
+
+        selectCenterListPopup.loadCountries = function (viewModel, elm) {
+            scn.showLoading();
+
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "venue/locations",
+                data: {},
+                dataType: "json",
+                success: function (countries) {
+                    scn.hideLoading();
+
+                    ko.mapping.fromJS(countries, {}, viewModel.countries);
+
+                    viewModel.countries.reverse();
+                    viewModel.countries.push({
+                        displayName: ko.observable('All Countries'),
+                        countryId: ko.observable(0),
+                        states: ko.observableArray()
+                    });
+                    viewModel.countries.reverse();
+
+                    var contentScroll = jQuery("#select-center-list-country-scroll", elm);
+                    var mainScroll = new iScroll(contentScroll.get(0), {
+                        snap: false,
+                        momentum: true,
+                        hScroll: false,
+                        hScrollbar: false,
+                        vScroll: true,
+                        vScrollbar: false
+                    });
+                    scn.popup.registerPopupDestructor(elm, function () {
+                        if (mainScroll) {
+                            mainScroll.destroy();
+                            mainScroll = null;
+                        }
+                    });
+                    mainScroll.refresh();
+                },
+                error: function (jqXhr) {
+
+                }
+            });
+        },
+
+        selectCenterListPopup.loadStates = function (viewModel, elm) {
+            scn.showLoading();
+
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "venue/locations",
+                data: {},
+                dataType: "json",
+                success: function (countries) {
+                    scn.hideLoading();
+
+                    ko.mapping.fromJS(countries, {}, viewModel.countries);
+
+                    viewModel.states.push({
+                        displayName: "All States",
+                        stateId: 0
+                    });
+
+                    for (var i = 0; i < countries.length; i++) {
+                        if (countries[i].displayName == viewModel.country()) {
+                            for (var j = 0; j < countries[i].states.length; j++) {
+                                viewModel.states.push(countries[i].states[j]);
+                            }
+
+                            break;
+                        }
+                    }
+
+                    var contentScroll = jQuery("#select-center-list-state-scroll", elm);
+                    var mainScroll = new iScroll(contentScroll.get(0), {
+                        snap: false,
+                        momentum: true,
+                        hScroll: false,
+                        hScrollbar: false,
+                        vScroll: true,
+                        vScrollbar: false
+                    });
+                    scn.popup.registerPopupDestructor(elm, function () {
+                        if (mainScroll) {
+                            mainScroll.destroy();
+                            mainScroll = null;
+                        }
+                    });
+                    mainScroll.refresh();
+                },
+                error: function (jqXhr) {
+
+                }
+            });
+        },
+
+        selectCenterListPopup.loadVenues = function (viewModel, elm) {
+            scn.showLoading();
+
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "venue/locations/" + viewModel.country() + "/" + viewModel.state(),
+                data: {},
+                dataType: "json",
+                success: function (venues) {
+                    scn.hideLoading();
+
+                    ko.mapping.fromJS(venues, {}, viewModel.venues);
+                    
+                    viewModel.venues.reverse();
+                    viewModel.venues.push({
+                        name: ko.observable('All Venues'),
+                        id: ko.observable(0)
+                    });
+                    viewModel.venues.reverse();
+
+                    var contentScroll = jQuery("#select-center-list-venue-scroll", elm);
+                    var mainScroll = new iScroll(contentScroll.get(0), {
+                        snap: false,
+                        momentum: true,
+                        hScroll: false,
+                        hScrollbar: false,
+                        vScroll: true,
+                        vScrollbar: false
+                    });
+                    scn.popup.registerPopupDestructor(elm, function () {
+                        if (mainScroll) {
+                            mainScroll.destroy();
+                            mainScroll = null;
+                        }
+                    });
+                    mainScroll.refresh();
+                },
+                error: function (jqXhr) {
+
+                }
+            });
+        },
+
+        selectCenterListPopup.countrySelect = function () {
+            var viewModel = ko.dataFor(this.element);
+            scn.popup.hide(this.element, {
+                countryDisplayName: viewModel.displayName(),
+                countryId: viewModel.countryId()
+            });
+        },
+
+        selectCenterListPopup.stateSelect = function () {
+            var viewModel = ko.dataFor(this.element);
+            scn.popup.hide(this.element, {
+                stateDisplayName: viewModel.displayName,
+                stateId: viewModel.administrativeAreaId
+            });
+        },
+
+        selectCenterListPopup.venueSelect = function () {
+            var viewModel = ko.dataFor(this.element);
+            scn.popup.hide(this.element, {
+                venueName: viewModel.name(),
+                venueId: viewModel.id()
+            });
+        }
+    }(window.scn.views.selectCenterListPopup = window.scn.views.selectCenterListPopup || {}));
+</script>
+<div id="popup" data-load="window.scn.views.selectCenterListPopup.load" style="height: 240px;">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span id="history-popup-title" data-bind="text: popupTitle"></span>
+        </div>
+    </div>
+    <div class="drill-down-section hundred-percent-width" style="margin-top: 10px" id="select-center-list-country" data-bind="visible: mode() == scn.views.selectCenterListPopup.MODE.COUNTRY">
+        <div id="select-center-list-country-scroll" style="height: 215px">
+            <ul class="list-view">
+                <li class="divider">Select a Country</li>
+                <!-- ko foreach: countries -->
+                <li data-bind="tap: scn.views.selectCenterListPopup.countrySelect" data-tap-alloweventbubble="true"><a data-bind="text: displayName"></a></li>
+                <!-- /ko -->
+            </ul>
+        </div>
+    </div>
+    <div class="drill-down-section hundred-percent-width" style="margin-top: 10px" id="select-center-list-state" data-bind="visible: mode() == scn.views.selectCenterListPopup.MODE.STATE">
+        <div id="select-center-list-state-scroll" style="height: 215px">
+            <ul class="list-view">
+                <li class="divider">Select a State</li>
+                <!-- ko foreach: states -->
+                <li class="drill-down-option" data-bind="tap: scn.views.selectCenterListPopup.stateSelect" data-tap-alloweventbubble="true"><a data-bind="text: displayName"></a></li>
+                <!-- /ko -->
+            </ul>
+        </div>
+    </div>
+    <div class="drill-down-section hundred-percent-width" style="margin-top: 10px" id="select-center-list-venue" data-bind="visible: mode() == scn.views.selectCenterListPopup.MODE.VENUE">
+        <div id="select-center-list-venue-scroll" style="height: 215px">
+            <ul class="list-view">
+                <li class="divider">Select a Center</li>
+                <!-- ko foreach: venues -->
+                <li class="drill-down-option" data-bind="tap: scn.views.selectCenterListPopup.venueSelect" data-tap-alloweventbubble="true"><a data-bind="text: name"></a></li>
+                <!-- /ko -->
+            </ul>
+        </div>
+    </div>
+</div>

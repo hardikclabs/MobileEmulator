@@ -1,0 +1,295 @@
+<script type="text/javascript">
+    (function (joinGamePopup) {
+        lastEndpoint = null,
+
+        addOpponentViewModel = function () {
+            this.opponents = ko.mapping.fromJS([]);
+            this.selectedOpponent = ko.observable();
+            this.search = ko.observable();
+            this.throttledSearch = ko.computed(this.search)
+                                    .extend({ throttle: 750 });
+            this.opponentType = ko.observable("all");
+            this.competitionType = ko.observable();
+            this.bowlingGameId = ko.observable();
+        },
+
+        joinGamePopup.load = function () {
+            scn.showLoading();
+
+            lastEndpoint = endpoint;
+
+            var that = this;
+            var elm = jQuery(this);
+            var viewModel = ko.dataFor(elm.get(0));
+            if (!viewModel) {
+                viewModel = new addOpponentViewModel();
+
+                var popupViewModel = scn.popup.getViewModel(elm);
+                viewModel.bowlingGameId(popupViewModel.bowlingGameId);
+                viewModel.competitionType(popupViewModel.competitionType);
+            }
+
+            // create the iscroll
+            var gameScrollElm = jQuery("#join-game-popup-game-scroll", elm);
+            var gameScroll;
+            if (gameScrollElm.get(0) && !gameScrollElm.get(0).iScroll) {
+                gameScrollElm.height(scn.popup.getHeight(elm) - 70);
+                gameScroll = new iScroll(gameScrollElm.get(0), {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+
+                scn.popup.registerPopupDestructor(elm, function () {
+                    if (gameScroll) {
+                        gameScroll.destroy();
+                    }
+                });
+            }
+
+            var searchTerm = viewModel.throttledSearch();
+
+            var data = { };
+            if (searchTerm && searchTerm.trim()) {
+                data.search = searchTerm.trim();
+            }
+
+            var endpoint = "bowlinggame/" + viewModel.bowlingGameId() + "/competition/";
+            
+            if (viewModel.competitionType() == "HeadToHead") {
+                endpoint += "headtohead";
+            } else if (viewModel.competitionType() == "Live") {
+                endpoint += "live";
+            } else {
+                throw "CompetitionType " + viewModel.competitionType() + " not supported.";
+            }
+
+            endpoint += "/available";
+
+            if (viewModel.opponentType() == "friends") {
+                endpoint += "/friends";
+            }
+
+            if (data.search) {
+                endpoint += "/search";
+            }
+
+            scn.ajax({
+                url: scn.apiAddress + endpoint,
+                type: "GET",
+                data: data,
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    if (data != null) {
+                        ko.mapping.fromJS(data, viewModel.opponents);
+                    }
+
+                    if (!elm.attr("data-bound")) {
+                        ko.applyBindings(viewModel, elm.get(0));
+                        elm.attr("data-bound", true);
+
+                        //ko.applyBindings(viewModel, jQuery("#search-form").get(0));
+                        viewModel.throttledSearch.subscribe(function () {
+                            joinGamePopup.load.call(that);
+                        });
+                        viewModel.opponentType.subscribe(function () {
+                            joinGamePopup.load.call(that);
+                        });
+                    }
+
+                    if (gameScrollElm) {
+                        var innerScroll = gameScrollElm.children(":first");
+                        innerScroll.height((data.length * 41) + 25);
+
+                        if (gameScroll) {
+                            gameScroll.refresh();
+                        }
+                    }
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                }
+            });
+        },
+
+        joinGamePopup.opponentTypeChange = function () {
+            var elm = jQuery(this.element);
+            var viewModel = ko.dataFor(this.element);
+            viewModel.opponentType(elm.attr("data-radio-value"));
+        },
+
+        joinGamePopup.selectOpponent = function () {
+            var elm = jQuery(this.element);
+            elm.siblings(".opponent-active").removeClass("opponent-active");
+            elm.addClass("opponent-active");
+
+            var viewModel = ko.dataFor(elm.get(0));
+
+            var popupElm = elm.parents("#popup:first");
+            var mainViewModel = ko.dataFor(popupElm.get(0));
+
+            mainViewModel.selectedOpponent(viewModel);
+
+            var opponentInfo = jQuery("#opponent-info-container");
+            opponentInfo.addClass("hidden");
+            opponentInfo.addClass("animated bounceIn").removeClass("hidden");
+        },
+
+        joinGamePopup.confirmOpponent = function () {
+            var elm = this.element;
+            var viewModel = ko.dataFor(elm);
+            var selectedOpponent = viewModel.selectedOpponent();
+            
+            var bowlingGame = {
+                id: viewModel.bowlingGameId()
+            };
+
+            // check legal for state by state restrictions
+            if (!scn.legal.checkH2HLiveEntry(selectedOpponent.creditWager())) {
+                return;
+            }
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "bowlingcompetition/live/" + selectedOpponent.id() + "/game",
+                type: "POST",
+                data: bowlingGame,
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    scn.views.footer.populateWallet();
+
+                    // hide popup
+                    scn.popup.hide(elm, data);
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+
+                    if (jqXhr.status == 409) {
+                        // already entered
+                        alert("You are already entered into this competition.");
+                    } else if (jqXhr.status == 402) {
+                        // payment required...not enough credits
+                        confirm("You do not have enough credits to enter this competition.  Would you like to purchase more credits now?", {
+                            title: "Uh oh!",
+                            callback: function (r) {
+                                if (r === NOTIFICATION_BUTTONS.OK) {
+                                    scn.popup.show("BuyMoreCredits", {
+                                        callback: function (callbackViewModel) {
+                                            if (callbackViewModel && callbackViewModel.purchaseMade) {
+                                                // try again
+                                                joinGamePopup.confirmOpponent();
+                                            }
+                                        },
+                                        height: 275
+                                    });
+                                }
+                            }
+                        });
+                    } else {
+                        alert("An error occurred entering you into the competition.  Please try again.");
+                    }
+                }
+            });
+        }
+    }(window.scn.views.joinGamePopup = window.scn.views.joinGamePopup || {}));
+</script>
+<div id="popup" class="green-bg" data-load="scn.views.joinGamePopup.load">
+    <ul class="full-list">
+        <li class="button-container" style="margin-top: 25px">
+            <div class="in-game-button green-general-button" data-radio="opponentType" data-radio-value="all" data-bind="css: { 'green-general-button-depressed': opponentType() == 'all' }, tap: scn.views.joinGamePopup.opponentTypeChange">
+                <span>All Xbowlers</span>
+            </div>
+
+            <div class="in-game-button green-general-button" data-radio="opponentType" data-radio-value="friends" data-bind="css: { 'green-general-button-depressed': opponentType() == 'friends' }, tap: scn.views.joinGamePopup.opponentTypeChange">
+                <span>Your Friends</span>
+            </div>
+
+            <div class="search-xbowlers">
+                <input data-bind="value: search, valueUpdate: 'afterkeydown'" type="text" placeholder="Search Xbowlers..." />
+            </div>
+        </li>
+        <!----- TABLE HEADER --------->
+        <li class="table-header">
+            <ul>
+                <li class="username">Name</li>
+                <li class="buy-in">Credits</li>
+                <li class="games-left">Max Reward</li>
+            </ul>
+        </li>
+    </ul>
+    <ul class="full-list" data-bind="visible: opponents().length == 0">
+        <li class="opponent">
+            <p style="color: #FFFFFF;">No live games are currently available.</p>
+        </li>
+    </ul>
+
+    <div id="join-game-popup-game-scroll" class="hundred-percent-width">
+        <ul class="full-list" data-bind="foreach: opponents, visible: opponents().length > 0">
+            <!----- OPPONENT 1 --------->
+            <li class="opponent" data-bind="tap: scn.views.joinGamePopup.selectOpponent" data-tap-alloweventbubble="true">
+                <a class="menu-internal">
+                <ul>
+                    <li class="opponent-username">
+                        <div class="xb-logo-container">
+                            <div class="xb-logo">
+                                <img src="logo-xbowling-small.png" />
+                            </div>
+                        </div>
+                        <div class="opponent-name-container">
+                            <div class="opponent-name" data-bind="text: scn.limitCharacters(name(), 15)"></div>
+                            <div class="opponent-xbowling-avg">xbowling AVG: <span data-bind="text: creatorAverage"></span></div>
+                        </div>
+                    </li>
+                    <li class="opponent-buy-in">
+                        <div class="centered">
+                            <div class="buy-in-amt" data-bind="text: creditWager"></div>
+                            <div class="xcoin-container">
+                                <div class="xcoin">
+                                    <img src="xcoin.png" />
+                                </div>
+                            </div>
+
+                        </div>
+                    </li>
+                    <li class="opponent-games-left" data-bind="log: $data.playersEntered() + ' ' + $data.playersRemaining(), text: scn.addCommas(scn.calculateLivePayout(creditWager()) * (playersEntered() + playersRemaining()))"></li>
+
+                </ul>
+                </a>
+            </li>
+
+        </ul>
+    </div>
+
+    <div id="opponent-info-container" class="opponent-info-container hidden">
+        <div class="header" style="background-color: #1C8817;">
+            <span>Opponent Info</span>
+        </div>
+
+        <div class="opponent-profile" data-bind="if: selectedOpponent">
+            <div data-bind="with: selectedOpponent">
+                <div class="avatar-container">
+                    <div class="avatar"><img src="logo-xbowling-small.png" /></div>
+                </div>
+                <ul class="profile">
+                    <li class="username" data-bind="text: scn.limitCharacters(name(), 15)"></li>
+                    <li class="xbowling-avg">Host: <span data-bind="text: scn.limitCharacters(creatorUserName(), 15)"></span></li>
+                    <li class="xbowling-avg">XBowling AVG: <span data-bind="text: creatorAverage"></span></li>
+                    <li class="region">Region: <span data-bind="text: creatorRegion"></span></li>
+                </ul>
+            </div>
+
+            <div class="button-container">
+                <div class="select-opponent-button green-general-button" data-bind="tap: scn.views.joinGamePopup.confirmOpponent">
+                    <span>Select Opponent</span>
+                </div>
+            </div>
+        </div>
+</div>

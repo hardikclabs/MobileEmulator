@@ -1,0 +1,45 @@
+<div id="popup-container" class="animated bounceIn">
+         <div class="popup-header">
+             <div class="merch-popup-title blue-tile">Merchandise</div>
+             <div class="close-popup blue-tile">
+                 <div class="close-icon">
+                <img src="close.png" />
+             </div>
+             </div>
+         </div>
+
+         <div class="popup-content">
+             <div class="merch-container">
+                <div class="prize-pic"><img src="prize-xb-merch-shirt-long-sleeve.jpg"></div>
+             </div>
+             <div class="merch-popup-message">
+                 <h1>Xbowling T-shirt</h1>
+                 <p>DryBlend (50% Cotton / 50% Polyester, 5.6 oz)</p>
+                 <div class="merch-detail-container">
+                     <div class="choose-size-container">
+                         <p class="choose-size-text">Choose Your Size:</p>
+                         <form>
+                             <select>
+                                 <option value="small">small</option>
+                                 <option value="medium">medium</option>
+                                 <option value="large">large</option>
+                                 <option value="xlarge">xlarge</option>
+                             </select>
+                         </form>
+                       </div>
+
+                      <div class="points-req">Points Req:<span>2,400</span>pts</div>
+                     
+                 </div>
+                 
+             </div>
+         </div>
+
+         <div class="popup-footer">
+             <div class="popup-footer-bar dark-blue-tile"></div>
+             <div class=" fadeIn done-btn partial-rounded orange-tile button merch-popup-button">Confirm and Purchase</div>
+         </div>
+
+     </div>
+ </div>
+<div id="footer" class="font-interstate no-background"></div>

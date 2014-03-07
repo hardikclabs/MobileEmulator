@@ -1,0 +1,58 @@
+<script type="text/javascript">
+    (function (redemptionMerchandiseSizeSelectPopup) {
+        redemptionMerchandiseSizeSelectPopup.load = function () {
+            var elm = jQuery(this);
+
+            var nameElm = jQuery("#size-select-name", elm);
+            var optionsElm = jQuery("#size-select-options", elm);
+
+            var popupViewModel = scn.popup.getViewModel(elm);
+            var sizeGroup = popupViewModel.redemptionProductSizeGroup;
+            
+            nameElm.text(sizeGroup.name);
+            
+            for (var i = 0; i < sizeGroup.items.length; i++) {
+                var option = jQuery("<option />")
+                    .text(sizeGroup.items[i].name)
+                    .attr("value", sizeGroup.items[i].id);
+                optionsElm.append(option);
+            }
+        },
+
+        redemptionMerchandiseSizeSelectPopup.okTap = function () {
+            var elm = jQuery(this).parents("#popup:first");
+            var optionsElm = jQuery("#size-select-options", elm);
+
+            scn.popup.hide(this, { size: optionsElm.val() });
+        },
+
+        redemptionMerchandiseSizeSelectPopup.closeTap = function () {
+            scn.popup.hide(this);
+        }
+
+    }(window.scn.views.redemptionMerchandiseSizeSelectPopup = window.scn.views.redemptionMerchandiseSizeSelectPopup || {}));
+</script>
+<div id="popup" data-load="scn.views.redemptionMerchandiseSizeSelectPopup.load" class="centered">
+    <div id="popup-bg"></div>
+
+    <div class="popup-header"><div class="centered-container">
+        <span>Select a Size</span></div>
+    </div>
+
+    <h1 style="margin-top: 30px; font-size: 20px" id="size-select-name"></h1>
+    <select id="size-select-options" style="height: 40px; width: 200px;">
+    </select>
+    <br /><br /><br />
+    <div style="clear: both; float: right; margin-right: 15px;">
+        <div class="button-container">
+            <button type="submit" class="medium-button red-general-button" data-tap="scn.views.redemptionMerchandiseSizeSelectPopup.closeTap">
+                <span>Cancel</span>
+            </button>
+        </div>
+        <div class="button-container">
+            <button type="submit" class="medium-button green-general-button no-margin" data-tap="scn.views.redemptionMerchandiseSizeSelectPopup.okTap">
+                <span>OK</span>
+            </button>
+        </div>
+    </div>
+</div>

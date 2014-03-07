@@ -1,0 +1,291 @@
+<script type="text/javascript">
+    (function (redemptionCategories) {
+        redemptionCategories.load = function () {
+            var elm = jQuery(this);
+
+            if (localStorage.getItem("redemptionReferer") == null || localStorage.getItem("redemptionReferer") === "") {
+                var currentReferer = scn.viewEngine.getCurrentReferer();
+                if (!currentReferer) {
+                    currentReferer = "new-1-MainDashboard";
+                }
+                localStorage.setItem("redemptionReferer", currentReferer);
+            }
+
+            scn.ajax({
+                url: scn.apiAddress + "redemptionrequest/eligible",
+                type: "GET",
+                data: {},
+                success: function (data) {
+                    if (data) {
+                        redemptionCategories.afterVerifyLocation(elm);
+                    } else {
+                        redemptionCategories.locationDenied();
+                    }
+                },
+                error: function () {
+                    redemptionCategories.locationDenied();
+                }
+            });
+        },
+
+        redemptionCategories.locationDenied = function () {
+            var locationData = null;
+            if (scn.location) {
+                locationData = scn.location();
+            }
+
+            if (!locationData) {
+                alert("XBowling currently does not provide the capability to redeem points for prizes "
+                        + "to XBowlers accessing our service from within your State.  " 
+                        + "We have noted your request and will contact you if/when XBowling begins offering the "
+                        + "redemption opportunity within your state.",
+                    { title: "Uh oh!" });
+            }
+            else {
+                if (scn.legal.checkRedemption()) {
+                    alert("XBowling currently does not provide the capability to redeem points for prizes "
+                        + "to XBowlers accessing our service from within your State.  "
+                        + "We have noted your request and will contact you if/when XBowling begins offering the "
+                        + "redemption opportunity within your state.",
+                    { title: "Uh oh!" });
+                }
+            }
+            redemptionCategories.close();
+        },
+
+        redemptionCategories.afterVerifyLocation = function (elm) {
+            // ensure not on android
+            var device = scn.device.toLowerCase();
+            if (device.indexOf("iphone") == -1 && device.indexOf("ipad") == -1 && device.indexOf("ipod") == -1 && device.indexOf("ios") == -1) {
+                alert("Due to Android regulations, XBowling does not provide the capability to redeem points for prizes to XBowlers "
+                      + "accessing our service on an Android device.  Please visit www.xbowling.com to redeem your points for prizes.",
+                    { title: "Uh oh!" });
+                redemptionMerchandise.close();
+            }
+
+            // setup tile scroller
+            var jqTileContainer = jQuery("#redemption-tile-container", elm);
+
+            var tileContainer = jqTileContainer.get(0);
+            var scroll = new iScroll(tileContainer, {
+                snap: true,
+                momentum: false,
+                hScroll: true,
+                hScrollbar: false,
+                vScroll: false,
+                vScrollbar: false,
+                onScrollEnd: function () {
+                    var pageIndicatorContainer = jQuery(this.wrapper).siblings("#redemption-page-indicator-container:first");
+                    jQuery(".page-indicator > span", pageIndicatorContainer).removeClass("selected");
+                    var page = this.currPageX + 1;
+                    jQuery(".page-indicator:nth-child(" + page + ") > span", pageIndicatorContainer).addClass("selected");
+                }
+            });
+            scn.viewEngine.registerViewDestructor(function () {
+                if (tileContainer && tileContainer.iScroll) {
+                    tileContainer.iScroll.destroy();
+                    tileContainer.iScroll = null;
+                }
+            });
+
+            var pointsElm = jQuery("#redemption-categories-points", elm);
+            if (scn.walletData) {
+                pointsElm.text(scn.addCommas(scn.walletData.availableRewardPoints));
+            }
+
+            // load wallet info
+            scn.ajax({
+                url: scn.apiAddress + "userprofile/wallet",
+                type: "GET",
+                dataType: "json",
+                success: function (data) {
+                    scn.walletData = data;
+                    pointsElm.text(scn.addCommas(scn.walletData.availableRewardPoints));
+                },
+                error: function (jqXhr) {
+                    console.log("wallet request failed with error " + jqXhr.status);
+
+                    if (jqXhr.status == 401) {
+                        scn.clearSession();
+                        scn.viewEngine.changeView("new-0-SignIn");
+                    }
+                }
+            });
+
+        },
+
+        redemptionCategories.categoryTap = function () {
+            var elm = jQuery(this);
+            var category = elm.attr("data-category");
+            if (category) {
+                scn.viewEngine.changeView("RedemptionMerchandise?category=" + category);
+            }
+        },
+
+        redemptionCategories.close = function () {
+            var currentReferer = localStorage.getItem("redemptionReferer");
+            scn.viewEngine.changeView(currentReferer,
+                {
+                    slideDirection: "right"
+                });
+
+            localStorage.setItem("redemptionReferer", "");
+        },
+
+        redemptionCategories.showHistory = function () {
+             var viewModel = ko.dataFor(this);
+             scn.viewEngine.changeView("RedemptionHistory");
+         }
+    }(window.scn.views.redemptionCategories = window.scn.views.redemptionCategories || {}));
+</script>
+
+
+<div id="redemption-wrapper" data-load="scn.views.redemptionCategories.load">
+  <div class="header">
+        <div class="header-left">
+            <div class="header-button orange-button" data-tap="scn.views.redemptionCategories.close"><p>Back</p></div>
+        </div>
+        <div class="header-center">
+           <h1 style="font-size: 26px;">Select a Category</h1>
+        </div>
+        <div class="header-right" data-changeview="new-1-MainDashboard">
+            <img src="home-icon.png" style="width: 49px; float: right; margin: 10px 10px 0 0" />
+        </div>
+    </div>
+    <div id="dashboard-content" style="height: 0 !important">
+
+        
+  <div id="redemption-tile-container" class="tile-container" style="margin-top: 10px;">
+    <div id="landing-tile-container-scroller">
+	    <ul>
+    	    <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="all">
+                    <div class="tiles gold-tile">
+                        <div class="tile-icon-container"><div class="tile-icon"><img src="icon-redemption-browse-all.png" /></div></div>
+                        <div class="tile-title">Browse All</div>
+                    </div>
+                </a>
+            </li>
+
+            <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Sporting Goods">
+                    <div class="tiles brown-tile">
+                        <div class="tile-icon-container"><div class="tile-icon"><img src="icon-redemption-sporting-goods.png" /></div></div>
+                        <div class="tile-title two-line-tile-title">Sporting<br />Goods</div>
+                    </div>
+                </a>
+            </li>
+
+            <li class="clear: both">
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Games">
+                    <div class="tiles blue-tile">
+                        <div class="tile-icon-container"><div class="tile-icon"><img src="icon-redemption-games.png" /></div></div>
+                        <div class="tile-title">Games</div>
+                    </div>
+                </a>
+            </li>
+  
+             <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Bowling Balls">
+                    <div class="tiles green-tile">
+                        <div class="tile-icon-container"><div class="tile-icon vib">
+                            <img src="icon-redemption-bowling-balls.png" /></div></div>
+                        <div class="tile-title two-line-tile-title">Bowling<br />Balls</div>
+                    </div>
+                </a>
+            </li>
+
+             <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Bowling Pins">
+                    <div class="tiles red-tile">
+                        <div class="tile-icon-container"><div class="tile-icon vib">
+                            <img src="icon-redemption-bowling-pins.png" /></div></div>
+                        <div class="tile-title two-line-tile-title">Bowling<br />Pins</div>
+                    </div>
+                </a>
+            </li>
+
+             <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Bowling Bags">
+                    <div class="tiles black-tile">
+                        <div class="tile-icon-container"><div class="tile-icon vib">
+                            <img src="icon-redemption-bowling-bags.png" /></div></div>
+                        <div class="tile-title two-line-tile-title">Bowling<br />Bags</div>
+                    </div>
+                </a>
+            </li>
+
+            
+
+        </ul>
+
+
+
+        <ul>
+            <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Toys">
+                    <div class="tiles green-tile">
+                        <div class="tile-icon-container"><div class="tile-icon"><img src="icon-redemption-toys.png" /></div></div>
+                        <div class="tile-title">Toys</div>
+                    </div>
+                </a>
+            </li>
+
+            <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Clothing">
+                    <div class="tiles gold-tile">
+                        <div class="tile-icon-container"><div class="tile-icon vib"><img src="icon-redemption-clothing.png" /></div></div>
+                        <div class="tile-title">Clothing</div>
+                    </div>
+                </a>
+            </li>
+
+            <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Electronics">
+                    <div class="tiles red-tile">
+                        <div class="tile-icon-container"><div class="tile-icon"><img src="icon-redemption-electronics.png" /></div></div>
+                        <div class="tile-title">Electronics</div>
+                    </div>
+                </a>
+    	   
+                      <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Home Goods">
+                    <div class="tiles brown-tile">
+                        <div class="tile-icon-container"><div class="tile-icon vib">
+                            <img src="icon-redemption-home-goods.png" /></div></div>
+                        <div class="tile-title">Home Goods</div>
+                    </div>
+                </a>
+            </li>
+
+            <li>
+                <a data-tap="scn.views.redemptionCategories.categoryTap" data-tap-alloweventbubble="true" data-category="Watches">
+                    <div class="tiles black-tile">
+                        <div class="tile-icon-container"><div class="tile-icon vib"><img src="icon-redemption-watches.png" /></div></div>
+                        <div class="tile-title">Watches</div>
+                    </div>
+                </a>
+            </li>
+        </ul>
+        <br class="clear" />
+    </div>
+</div><!----- END TILE CONTAINER ---> 
+  <div id="redemption-page-indicator-container">
+    <div class="page-indicator"><span class="selected"></span></div>
+    <div class="page-indicator"><span></span></div>
+  </div>
+</div>
+
+<div class="footer" style="position: absolute !important; bottom: 0;">
+    <div class="powered-by-container">
+        <div class="powered-by-text">powered<br />by</div>
+        <div class="scn-logo"><img src="logo-scn.png" /></div>
+    </div>
+    <div class="footer-button orange-button" data-tap="scn.views.redemptionCategories.showHistory"><p>Your History</p></div>
+    <div class="scn-point-container">
+        <div class="scn-points" id="redemption-categories-points"></div>
+        <div class="currency-type">SCN&trade;<br />REWARDS</div>
+    </div>
+</div>
+
+</div>

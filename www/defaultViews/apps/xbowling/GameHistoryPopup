@@ -1,0 +1,523 @@
+<script type="text/javascript">
+    (function (gameHistory) {
+        gameHistory.MODE = {
+            YEAR: 1,
+            MONTH: 2,
+            DATE: 3,
+            GAME: 4
+        },
+
+        gameHistory.viewModel = function () {
+            var viewParams = scn.viewEngine.getViewIdFromHash();
+
+            this.games = ko.mapping.fromJS([]);
+            this.dates = ko.mapping.fromJS([]);
+
+            this.years = ko.observableArray([]);
+            this.year = ko.observable();
+            this.month = ko.observable();
+            this.date = ko.observable();
+
+            this.mode = ko.observable(gameHistory.MODE.YEAR);
+            this.previousMode = ko.observable(null);
+        },
+
+        gameHistory.load = function () {
+            var elm = jQuery(this);
+
+            jQuery(".drill-down-section", elm).width(elm.width());
+
+            var viewModel = new gameHistory.viewModel();
+            ko.applyBindings(viewModel, elm.get(0));
+
+            var dateSubscription = viewModel.date.subscribe(function (newDate) {
+                gameHistory.loadDate(viewModel, elm);
+            });
+
+            scn.viewEngine.registerViewDestructor(function () {
+                if (dateSubscription) {
+                    dateSubscription.dispose();
+                }
+            });
+
+            // challenge list scroller
+            var scrollElm = jQuery("#game-history-scroll", elm);
+            scrollElm.height(150);
+            var scroll = new iScroll(scrollElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+            scn.popup.registerPopupDestructor(scrollElm, function () {
+                if (scrollElm.get(0).iScroll) {
+                    scrollElm.get(0).iScroll.destroy();
+                    scrollElm.get(0).iScroll = null;
+                }
+            });
+
+            scn.ajax({
+                url: scn.apiAddress + "scoredbowlinggame/dates",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    var years = viewModel.years();
+
+                    var lastYear = null;
+
+                    for (var i = 0; i < data.length; i++) {
+                        var currentDate = new moment(data[i]);
+
+                        var year = null;
+                        if (lastYear != null) {
+                            if (lastYear.year == currentDate.year()) {
+                                year = lastYear;
+                            }
+                        }
+
+                        if (year == null) {
+                            for (var j = 0; j < years.length; j++) {
+                                if (years[j].year == currentDate.year()) {
+                                    year = years[j];
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (year == null) {
+                            year = {
+                                year: currentDate.year(),
+                                months: ko.observableArray([])
+                            };
+                            viewModel.years.push(year);
+                        }
+
+                        var month = null;
+                        var months = year.months();
+                        for (var j = 0; j < months.length; j++) {
+                            if (months[j].month == currentDate.month()) {
+                                month = months[j];
+                                break;
+                            }
+                        }
+
+                        if (month == null) {
+                            month = {
+                                month: currentDate.month(),
+                                monthDisplay: moment(currentDate).format("MMMM"),
+                                dates: ko.observableArray([])
+                            }
+                            year.months.push(month);
+                        }
+
+                        month.dates.push(data[i]);
+
+                        lastYear = year;
+                    }
+
+                    //viewModel.years.removeAll();
+                    //for (var i = 0; i < years.length; i++) {
+                    //    viewModel.years.push(years[i]);
+                    //}
+
+                    var jqYearUl = jQuery("#game-history-year-select-scroll:first", elm);
+                    var yearUl = jqYearUl.get(0);
+                    if (!yearUl.iScroll) {
+                        jqYearUl.height(135);
+                        
+                        var yearUlScroll = new iScroll(yearUl, {
+                            snap: false,
+                            momentum: true,
+                            hScroll: false,
+                            hScrollbar: false,
+                            vScroll: true,
+                            vScrollbar: false
+                        });
+
+                        scn.viewEngine.registerViewDestructor(function () {
+                            if (yearUlScroll) {
+                                yearUlScroll.destroy();
+                                yearUlScroll = null;
+                            }
+                        });
+                    }
+
+                    if (yearUl.iScroll) {
+                        yearUl.iScroll.refresh();
+                    }
+                },
+                error: function (jqXhr) {
+                    alert("An error occurred loading game history.  Please try again later.");
+                }
+            });
+        },
+
+        gameHistory.loadDate = function (viewModel, elm) {
+            var from = viewModel.date()
+            var to = new moment(viewModel.date()).add("days", 1);
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "scoredbowlinggame",
+                data: { from: from, to: scn.formatDateTimeForRequest(to.toDate()) },
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    ko.mapping.fromJS(data, viewModel.games);
+
+                    var challengeRows = 0;
+                    for (var i = 0; i < data.length; i++) {
+                        var gameChallengeCount = 0;
+                        if (data[i].enteredLive)
+                            gameChallengeCount++;
+                        if (data[i].enteredPosted)
+                            gameChallengeCount++;
+
+                        gameChallengeCount += data[i].challenges.length;
+
+                        challengeRows += Math.ceil(gameChallengeCount / 2.0);
+                    }
+
+                    // refresh iscroll
+                    var scroll = jQuery("#game-history-scroll", elm);
+                    var innerScroll = scroll.children(":first");
+                    innerScroll.height((105 * data.length) + (55 * challengeRows));
+                    if (scroll.get(0) && scroll.get(0).iScroll) {
+                        scroll.get(0).iScroll.refresh();
+                    }
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                    alert("An error occurred loading game history.  Please try again later.");
+                }
+            });
+        },
+
+        gameHistory.postGame = function () {
+            var viewModel = ko.dataFor(this.element);
+            scn.popup.show("CreateGamePopup", {
+                viewModel: {
+                    bowlingGameId: viewModel.scoredGame.bowlingGameId(),
+                    competitionType: "Posted"
+                },
+                callback: function (data) {
+                    if (data) {
+                        viewModel.isPosted(true);
+                    }
+                }
+            });
+        },
+
+
+        gameHistory.getSlideVisibleDirectionYear = function (elm) {
+            return this.previousMode() === gameHistory.MODE.MONTH ? "right" : "left";
+        },
+
+         gameHistory.getSlideVisibleDirectionMonth = function (elm) {
+             return this.previousMode() === gameHistory.MODE.YEAR ? "left" : "right";
+         },
+
+         gameHistory.getSlideVisibleDirectionDate = function (elm) {
+             return this.previousMode() === gameHistory.MODE.MONTH ? "left" : "right";
+         },
+
+        gameHistory.yearSelect = function () {
+            var elm = jQuery(this.element);
+            var parentElm = elm.parents("#game-history-year-select-content:first");
+
+            var viewModel = ko.dataFor(parentElm.get(0));
+            var year = ko.dataFor(this.element);
+
+            viewModel.year(year);
+            viewModel.previousMode(gameHistory.MODE.YEAR);
+            viewModel.mode(gameHistory.MODE.MONTH);
+
+            var monthSelect = parentElm.siblings("#game-history-month-select-content:first");
+            var jqMonthUl = jQuery("#game-history-month-select-scroll:first", monthSelect);
+            var monthUl = jqMonthUl.get(0);
+            if (!monthUl.iScroll) {
+                var monthUlScroll = new iScroll(monthUl, {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+
+                scn.viewEngine.registerViewDestructor(function () {
+                    if (monthUl.iScroll) {
+                        monthUl.iScroll.destroy();
+                        monthUl.iScroll = null;
+                    }
+                });
+            }
+
+            if (monthUl.iScroll) {
+                jqMonthUl.height(175);
+                monthUl.iScroll.refresh();
+            }
+        },
+
+        gameHistory.monthSelect = function () {
+            var elm = jQuery(this.element);
+            var parentElm = elm.parents("#game-history-month-select-content:first");
+
+            var viewModel = ko.dataFor(parentElm.get(0));
+            var month = ko.dataFor(this.element);
+
+            viewModel.month(month);
+            viewModel.previousMode(gameHistory.MODE.MONTH);
+            viewModel.mode(gameHistory.MODE.DATE);
+
+            var dateSelectWrapper = parentElm.siblings("#game-history-date-select-content:first");
+            var dateSelectScroll = jQuery("#game-history-date-select-scroll:first", dateSelectWrapper);
+            var dateSelectScrollDom = dateSelectScroll.get(0);
+            if (!dateSelectScrollDom.iScroll) {
+                var dateUlScroll = new iScroll(dateSelectScrollDom, {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+
+                scn.viewEngine.registerViewDestructor(function () {
+                    if (dateUlScroll) {
+                        dateUlScroll.destroy();
+                        dateUlScroll = null;
+                    }
+                });
+            }
+
+            if (dateSelectScrollDom.iScroll) {
+                dateSelectScroll.height(175);
+                dateSelectScrollDom.iScroll.refresh();
+            }
+        },
+
+        gameHistory.dateSelect = function () {
+            var elm = jQuery(this.element);
+            var parentElm = elm.parents("#game-history-date-select-content:first");
+
+            var viewModel = ko.dataFor(parentElm.get(0));
+            var date = ko.dataFor(this.element);
+
+            viewModel.date(date);
+
+            viewModel.previousMode(viewModel.mode());
+            viewModel.mode(gameHistory.MODE.GAME);
+        },
+
+        gameHistory.backToYearSelect = function () {
+            var elm = jQuery(this.element);
+            var parentElm = elm.parents("#game-history-month-select-content:first");
+            var viewModel = ko.dataFor(parentElm.get(0));
+            viewModel.year(null);
+
+            viewModel.previousMode(gameHistory.MODE.MONTH);
+            viewModel.mode(gameHistory.MODE.YEAR);
+        },
+
+        gameHistory.backToMonthSelect = function () {
+            var elm = jQuery(this.element);
+            var parentElm = elm.parents("#game-history-date-select-content:first");
+            var viewModel = ko.dataFor(parentElm.get(0));
+            viewModel.month(null);
+
+            viewModel.previousMode(gameHistory.MODE.DATE);
+            viewModel.mode(gameHistory.MODE.MONTH);
+
+            var parentElm = jQuery("#game-history-popup:first");
+            var jqMonthUl = jQuery("#game-history-month-select-scroll:first", parentElm);
+            var monthUl = jqMonthUl.get(0);
+            if (!monthUl.iScroll) {
+                var monthUlScroll = new iScroll(monthUl, {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+
+                scn.viewEngine.registerViewDestructor(function () {
+                    if (monthUl.iScroll) {
+                        monthUl.iScroll.destroy();
+                        monthUl.iScroll = null;
+                    }
+                });
+            }
+
+            if (monthUl.iScroll) {
+                jqMonthUl.height(175);
+                monthUl.iScroll.refresh();
+            }
+        },
+
+        gameHistory.backToDateSelect = function () {
+            var elm = jQuery(this.element);
+            var viewModel = ko.dataFor(elm.get(0));
+            viewModel.date(null);
+
+            viewModel.previousMode(viewModel.GAME);
+            viewModel.mode(gameHistory.MODE.DATE);
+
+            var parentElm = elm.parents("#game-history-popup:first");
+            var dateSelectScroll = jQuery("#game-history-date-select-scroll:first", parentElm);
+            var dateSelectScrollDom = dateSelectScroll.get(0);
+
+            if (!dateSelectScrollDom.iScroll) {
+                var dateUlScroll = new iScroll(dateSelectScrollDom, {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+
+                scn.viewEngine.registerViewDestructor(function () {
+                    if (dateUlScroll) {
+                        dateUlScroll.destroy();
+                        dateUlScroll = null;
+                    }
+                });
+            }
+
+            if (dateSelectScrollDom.iScroll) {
+                dateSelectScroll.height(175);
+                dateSelectScrollDom.iScroll.refresh();
+            }
+        },
+
+        gameHistory.getFormatedHeaderDate = function (date) {
+            if (date) {
+                return moment(date).format('MMMM D, YYYY')
+            } else {
+                return "";
+            }
+        }
+
+    }(window.scn.views.gameHistory = window.scn.views.gameHistory || {}));
+</script>
+<div data-load="scn.views.gameHistory.load" id="game-history-popup">
+   <div style="height: 185px">
+       <div>
+            <div class="drill-down-section" id="game-history-year-select-content" data-bind="slideVisible: mode() == scn.views.gameHistory.MODE.YEAR, slideVisibleDirection: scn.views.gameHistory.getSlideVisibleDirectionYear">
+                <!-----  leaderboard entries --------->
+                <div id="game-history-year-select-scroll">
+                    <ul class="list-view">
+                        <li class="divider">Select a Year</li>
+                        <!-- ko foreach: years -->
+                        <li><a data-bind="tap: scn.views.gameHistory.yearSelect, text: year" data-tap-alloweventbubble="true"></a></li>
+                        <!-- /ko -->
+                    </ul>
+                </div>
+            </div>
+            <div class="drill-down-section" id="game-history-month-select-content" data-bind="with: year, slideVisible: mode() == scn.views.gameHistory.MODE.MONTH, slideVisibleDirection: scn.views.gameHistory.getSlideVisibleDirectionMonth">
+                <div id="game-history-month-select-scroll">
+                    <ul class="list-view">
+                        <li class="divider">
+                            <button class="button small-round-button orange-button light-text" data-bind="tap: scn.views.gameHistory.backToYearSelect">Back</button>
+                            Select a Month
+                        </li>
+                        <!-- ko foreach: months -->
+                        <li><a data-bind="tap: scn.views.gameHistory.monthSelect, text: monthDisplay" data-tap-alloweventbubble="true"></a></li>
+                        <!-- /ko -->
+                    </ul>
+                </div>
+            </div>
+            <div class="drill-down-section" id="game-history-date-select-content" data-bind="with: month, slideVisible: mode() == scn.views.gameHistory.MODE.DATE, slideVisibleDirection: scn.views.gameHistory.getSlideVisibleDirectionDate">
+                <div id="game-history-date-select-scroll">
+                    <ul class="list-view">
+                        <li class="divider">
+                            <button class="button small-round-button orange-button light-text" data-bind="tap: scn.views.gameHistory.backToMonthSelect">Back</button>
+                            Select a Day
+                        </li>
+                        <!-- ko foreach: dates -->
+                        <li><a data-bind="tap: scn.views.gameHistory.dateSelect, text: moment($data).format('MMMM D, YYYY')" data-tap-alloweventbubble="true"></a></li>
+                        <!-- /ko -->
+                    </ul>
+                </div>
+            </div>
+            <div class="drill-down-section" data-bind="slideVisible: mode() == scn.views.gameHistory.MODE.GAME, slideVisibleDirection: 'left'">
+                <div class="popup-container" style="margin-top: -5px">
+                    <div class="drill-down-header">
+                        <button class="button small-round-button orange-button light-text" data-bind="tap: scn.views.gameHistory.backToDateSelect">Back</button>
+                        <h1 data-bind="text: scn.views.gameHistory.getFormatedHeaderDate(date())"></h1>
+                    </div>
+                    <div id="game-history-scroll">
+                        <div class="frame-section-live" data-bind="foreach: games">
+                              <div class="player-info-container">
+                                  <span class="username" data-bind="text: scoredGame.name" style="margin-top: 5px"></span>
+                                  <button class="light-text blue-general-button" data-bind="tap: scn.views.gameHistory.postGame, visible: !isPosted() && scoredGame.isComplete()" style="margin-left: 5px;">POST GAME</button>
+                                  <!--<span class="username">Mavu1283948ues...</span><span class="at">@</span><span class="center-location">Stars and Strikes</span><span class="in">in</span>
+                                  <span class="state">GA</span><span class="comma">,</span><span class="country">USA</span>
+                                  <span class="user-type">Game 1</span>-->
+                              </div>
+                            <div data-template="Scores" class="popup-scores" data-bind="with: scoredGame"></div>
+                
+                            <!---Challenges Won: 1 Choose Your Score----->
+                            <div data-bind="foreach: challenges">
+                                <div class="challenge-info-container">
+                                    <div class="challenge-icon-small" data-bind="css: challenge.color().toLowerCase() + '-challenge-button'">
+                                        <div class="challenge-icon-container">
+                                            <div class="challenge-icon" data-xbind="attr: { class: 'icon challenge-' + challenge.name().toLowerCase().replace(/\s/g, '-') }">
+                                                <img data-bind="image: 'challenge-' + challenge.name().toLowerCase().replace(/\s/g, '-') + '.png'" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="challenge-name">
+                                        <span data-bind="text: challenge.name"></span>
+                                    </div>
+                                    <div class="points-won">
+                                        <p><span data-bind="text: scn.addCommas(pointsWon())"></span> Pts Won</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- H2H Posted -->
+                            <div class="challenge-info-container" data-bind="visible: enteredPosted">
+                                <div class="challenge-icon-small purple-challenge-button">
+                                    <div class="challenge-icon-container">
+                                        <div class="challenge-icon" data-xbind="attr: { class: 'icon challenge-' + challenge.name().toLowerCase().replace(/\s/g, '-') }">
+                                            <img data-bind="image: 'challenge-head2head.png'" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="challenge-name">
+                                    <span>Head 2 Head Posted</span>
+                                </div>
+                                <div class="points-won">
+                                    <p><span data-bind="text: scn.addCommas(postedPoints())"></span> Pts Won</p>
+                                </div>
+                            </div>
+                            <!-- H2H Live -->
+                            <div class="challenge-info-container" data-bind="visible: enteredLive">
+                                <div class="challenge-icon-small green-challenge-button">
+                                    <div class="challenge-icon-container">
+                                        <div class="challenge-icon">
+                                            <img data-bind="image: 'challenge-live-games.png'" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="challenge-name">
+                                    <span>Head 2 Head Live</span>
+                                </div>
+                                <div class="points-won">
+                                    <p><span data-bind="text: scn.addCommas(livePoints())"></span> Pts Won</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

@@ -1,0 +1,356 @@
+<script type="text/javascript">
+    (function (myFriendsPopup) {
+        myFriendsPopup.PAGE_SIZE = 10,
+
+        myFriendsPopup.DISPLAY_MODE = {
+            FRIENDS: 1,
+            ALL: 2
+        },
+
+        myFriendsPopup.viewModel = function () {
+            this.friends = ko.mapping.fromJS([]);
+            this.loaded = ko.observable(false);
+            this.mode = ko.observable();
+            this.search = ko.observable("")
+                .extend({ throttle: 750 });
+            this.lastDataSetSize = ko.observable();
+            this.startIndex = ko.observable(0);
+
+            this.resetFriends = function () {
+                this.lastDataSetSize(0);
+                this.startIndex(0);
+                this.friends.removeAll();
+                this.loaded(false);
+            }
+        },
+
+        myFriendsPopup.load = function () {
+            var friendsContainer = jQuery(this);
+            var viewModel = ko.dataFor(friendsContainer.get(0));
+            if (!viewModel) {
+                viewModel = new myFriendsPopup.viewModel();
+                ko.applyBindings(viewModel, friendsContainer.get(0));
+            }
+
+            var isElm = jQuery("#my-friends-popup-scroller", friendsContainer);
+            //var newHeight = friendsContainer.parent().height() - isElm.position().top;
+            //isElm.height(150);
+            var is = new iScroll(isElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+            scn.popup.registerPopupDestructor(friendsContainer, function () {
+                if (isElm.get(0).iScroll) {
+                    isElm.get(0).iScroll.destroy();
+                }
+            });
+
+
+            viewModel.mode.subscribe(function (newValue) {
+                if (newValue == myFriendsPopup.DISPLAY_MODE.ALL) {
+                    viewModel.resetFriends();
+                    myFriendsPopup.loadAll(friendsContainer);
+                } else if (newValue == myFriendsPopup.DISPLAY_MODE.FRIENDS) {
+                    viewModel.resetFriends();
+                    myFriendsPopup.loadMyFriends(friendsContainer);
+                }
+            });
+
+            viewModel.search.subscribe(function (newValue) {
+                viewModel.resetFriends();
+
+                if (this.mode() == myFriendsPopup.DISPLAY_MODE.ALL) {
+                    myFriendsPopup.loadAll(friendsContainer);
+                } else if (this.mode() == myFriendsPopup.DISPLAY_MODE.FRIENDS) {
+                    myFriendsPopup.loadMyFriends(friendsContainer);
+                }
+            }, viewModel);
+
+            viewModel.mode(myFriendsPopup.DISPLAY_MODE.FRIENDS);
+        },
+
+        addProperties = function (friend) {
+            if (friend.processing === undefined) {
+                friend.processing = ko.observable(false);
+            }
+
+            if (friend.regionDisplay === undefined) {
+                friend.regionDisplay = ko.computed(function () {
+                    var val = "";
+                    if (this.regionLongName()) {
+                        val += this.regionLongName();
+                    }
+
+                    if (this.countryCode()) {
+                        if (val.length > 0) {
+                            val += ", ";
+                        }
+
+                        val += this.countryCode();
+                    }
+
+                    if (val.length == 0) {
+                        val = "---";
+                    }
+
+                    return val;
+                }, friend);
+            }
+        },
+
+        myFriendsPopup.loadAll = function (friendsContainer) {
+            var viewModel = ko.dataFor(friendsContainer.get(0));
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "friend/available",
+                type: "GET",
+                data: { search: viewModel.search(), startIndex: viewModel.startIndex(), pageSize: myFriendsPopup.PAGE_SIZE },
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    for (var i = 0; i < data.length; i++) {
+                        var mapped = ko.mapping.fromJS(data[i]);
+                        addProperties(mapped);
+                        viewModel.friends.push(mapped);
+                    }
+
+                    viewModel.loaded(true);
+                    viewModel.lastDataSetSize(data.length);
+                    viewModel.startIndex(viewModel.startIndex() + data.length);
+
+                    // refresh iSrcoll
+                    var liList = jQuery("#my-friends-popup-scroller > div", friendsContainer);
+                    var liListParent = liList.parent();
+                    liListParent.height(175 - liListParent.offsetParent().position().top);
+                    liList.height((42 * viewModel.friends().length) + 50);
+                    var listScroll = liList.parent().get(0).iScroll;
+                    if (listScroll) {
+                        listScroll.refresh();
+                    }
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                    alert("An error occurred loading users.  Please try again");
+                }
+            });
+        },
+
+        myFriendsPopup.loadMyFriends = function (friendsContainer) {
+            var viewModel = ko.dataFor(friendsContainer.get(0));
+
+            scn.showLoading();
+
+            var search = viewModel.search();
+            var urlModifier = "";
+            var data = { startIndex: viewModel.startIndex(), pageSize: myFriendsPopup.PAGE_SIZE };
+            if (search && search.trim() !== "") {
+                urlModifier = "/search";
+                data.search = search.trim();
+            }
+
+            scn.ajax({
+                url: scn.apiAddress + "friend" + urlModifier,
+                type: "GET",
+                data: data,
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    for (var i = 0; i < data.length; i++) {
+                        var mapped = ko.mapping.fromJS(data[i]);
+                        addProperties(mapped);
+                        viewModel.friends.push(mapped);
+                    }
+
+                    viewModel.loaded(true);
+                    viewModel.lastDataSetSize(data.length);
+                    viewModel.startIndex(viewModel.startIndex() + data.length);
+
+                    // refresh iSrcoll
+                    var liList = jQuery("#my-friends-popup-scroller > div", friendsContainer);
+                    var liListParent = liList.parent();
+                    liListParent.height(175 - liListParent.offsetParent().position().top);
+                    liList.height((42 * viewModel.friends().length) + 50);
+                    var listScroll = liList.parent().get(0).iScroll;
+                    if (listScroll) {
+                        listScroll.refresh();
+                    }
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                    alert("An error occurred loading friends.  Please try again");
+                }
+            });
+        },
+
+        myFriendsPopup.removeFriendTap = function () {
+            var viewModel = ko.dataFor(this.element);
+
+            var context = ko.contextFor(this.element);
+            var parentViewModel = context.$parent;
+
+            if (viewModel.processing())
+                return;
+
+            viewModel.processing(true);
+
+            scn.showLoading();
+            
+            scn.ajax({
+                url: scn.apiAddress + "friend",
+                type: "DELETE",
+                data: { id: viewModel.friendId() },
+                success: function (data) {
+                    scn.hideLoading();
+                    viewModel.processing(false);
+
+                    parentViewModel.friends.remove(viewModel);
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                    viewModel.processing(false);
+                    alert("An error occurred removing that friend.  Please try again");
+                }
+            });
+        },
+
+        myFriendsPopup.addFriendTap = function () {
+            var viewModel = ko.dataFor(this.element);
+
+            if (viewModel.processing())
+                return;
+
+            viewModel.processing(true);
+            viewModel.isFriend(true);
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "friend",
+                type: "POST",
+                data: ko.mapping.toJS(viewModel),
+                success: function (data) {
+                    scn.hideLoading();
+
+                    viewModel.friendId(data.id);
+                    viewModel.processing(false);
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                    viewModel.isFriend(false);
+                    viewModel.processing(false);
+                    alert("An error occurred adding that friend.  Please try again");
+                }
+            });
+        },
+
+        myFriendsPopup.changeToFriendsMode = function () {
+            var viewModel = ko.dataFor(this.element);
+            viewModel.mode(myFriendsPopup.DISPLAY_MODE.FRIENDS);
+        },
+        
+        myFriendsPopup.changeToAllMode = function () {
+            var viewModel = ko.dataFor(this.element);
+            viewModel.mode(myFriendsPopup.DISPLAY_MODE.ALL);
+        },
+
+        myFriendsPopup.loadMoreTap = function () {
+            var viewModel = ko.dataFor(this.element);
+            if (viewModel.mode() == myFriendsPopup.DISPLAY_MODE.ALL) {
+                myFriendsPopup.loadAll(jQuery(this.element).parents("#my-friends-container:first"));
+            } else if (viewModel.mode() == myFriendsPopup.DISPLAY_MODE.FRIENDS) {
+                myFriendsPopup.loadMyFriends(jQuery(this.element).parents("#my-friends-container:first"));
+            }
+        }
+    }(window.scn.views.myFriendsPopup = window.scn.views.myFriendsPopup || {}));
+</script>
+ <div id="my-friends-container" data-load="scn.views.myFriendsPopup.load" style="height:250px;">
+    <div id="popup">
+        <ul class="full-list">
+            <li class="button-container">
+                <div class="in-game-button blue-general-button" data-bind="css: { 'blue-general-button-depressed': mode() == scn.views.myFriendsPopup.DISPLAY_MODE.FRIENDS }, tap: scn.views.myFriendsPopup.changeToFriendsMode">
+                    <span>My Friends</span>
+                </div>
+
+                <div class="in-game-button blue-general-button" data-bind="css: { 'blue-general-button-depressed': mode() == scn.views.myFriendsPopup.DISPLAY_MODE.ALL }, tap: scn.views.myFriendsPopup.changeToAllMode">
+                    <span>All XBowlers</span>
+                </div>
+
+                <div class="search-xbowlers" style="width:205px">
+                    <input type="text" data-bind="value: search, valueUpdate: 'afterkeydown', attr: { placeholder: mode() == scn.views.myFriendsPopup.DISPLAY_MODE.ALL ? 'Search All XBowlers...' : 'Search My Friends...' }" />
+                </div>
+            </li>
+            <!----- TABLE HEADER --------->
+            <li class="table-header">
+                <ul>
+                    <li class="table-username">Username</li>
+                    <li class="friend-region">Region</li>
+                </ul>
+            </li>
+
+            <li class="friend message" data-bind="visible: !loaded">
+                <h2>Loading Friends.  Please wait...</h2>
+            </li>
+
+            <li class="friend message" data-bind="visible: loaded() && friends().length == 0 && search().length == 0">
+                <h2>So sorry, you have not added any friends yet.  Tap the "ALL XBOWLERS" tab to get started!</h2>
+            </li>
+
+             <li class="friend message" data-bind="visible: loaded() && friends().length == 0 && search().length > 0">
+                <h2>We can't find anybody with that Username!</h2>
+            </li>
+         </ul>
+         
+         <div id="my-friends-popup-scroller" style="width:100%;">
+             <div style="width: 100%;">
+                 <ul class="full-list" data-bind="foreach: friends">
+                    <li class="friend" data-bind="visible: $root.loaded">
+                        <ul>
+                            <li class="table-username">
+                                <div class="xb-logo-container">
+                                    <div class="xb-logo">
+                                        <img src="logo-xbowling-small.png" />
+                                    </div>
+                                </div>
+                                <div class="friend-name-container">
+                                    <div class="friend-name" data-bind="text: scn.limitCharacters(screenName(), 15)"></div>
+                                    <div class="friend-xbowling-avg">XBowling AVG: <span data-bind="text: averageScore">211</span></div>
+                                </div>
+                            </li>
+                            <li class="table-region">
+                                <div class="centered">
+                                    <div class="region">
+                                        <span data-bind="text: regionDisplay"></span>
+                                    </div>
+                                </div>  
+                            </li>
+                            <li class="table-action">
+                                <div class="button-container">
+                                    <div style="min-width: 105px" class="in-game-button red-general-button" data-bind="visible: isFriend, tap: scn.views.myFriendsPopup.removeFriendTap" data-tap-alloweventbubble="true">
+                                        <span>Remove Friend</span>
+                                    </div>
+                                    <div style="min-width: 105px" class="in-game-button green-general-button" data-bind="visible: !isFriend(), tap: scn.views.myFriendsPopup.addFriendTap" data-tap-alloweventbubble="true">
+                                        <span>Add Friend</span>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="button-container load-more">
+                    <div style="margin: auto;" class="in-game-button blue-general-button" data-bind="visible: lastDataSetSize() > 0 && lastDataSetSize() == scn.views.myFriendsPopup.PAGE_SIZE, tap: scn.views.myFriendsPopup.loadMoreTap">
+                        <span>Load More</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

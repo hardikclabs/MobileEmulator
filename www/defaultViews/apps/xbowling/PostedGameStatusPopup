@@ -1,0 +1,265 @@
+<script type="text/javascript">
+(function(postedGameStatusPopup) {
+    REFRESH_INTERVAL = 7000,
+
+    postedGameStatusPopup.viewModel = function() {
+        this.postedGameList = ko.observableArray();
+        this.postedGames = ko.mapping.fromJS([]);
+        this.selectedPostedGame = ko.observable(null);
+        this.gameView = ko.observable(false);
+        this.loadingSelectedPostedGame = ko.observable(false);
+        this.refreshing = ko.observable(false);
+        this.myGameScore = ko.observable(0);
+    },
+
+
+    postedGameStatusPopup.load = function () {
+
+        var that = this;
+        
+        var scrollElm = jQuery("#game-history-scroll", this);
+        var iscr = new iScroll(scrollElm.get(0), {
+            snap: false,
+            momentum: true,
+            hScroll: false,
+            hScrollbar: false,
+            vScroll: true,
+            vScrollbar: false
+        });
+
+        scn.popup.registerPopupDestructor(this, function () {
+            if (iscr) {
+                iscr.destroy();
+            }
+        });
+
+        var selectSrollElm = jQuery("#posted-game-select-scroll", this);
+        var selectIscr = new iScroll(selectSrollElm.get(0), {
+            snap: false,
+            momentum: true,
+            hScroll: false,
+            hScrollbar: false,
+            vScroll: true,
+            vScrollbar: false
+        });
+
+        scn.popup.registerPopupDestructor(this, function () {
+            if (selectIscr) {
+                selectIscr.destroy();
+            }
+        });
+
+        postedGameStatusPopup.getPostedGameList(
+            function (data) {
+                var vm = new postedGameStatusPopup.viewModel();
+
+                vm.postedGameList(data);
+
+                var subscription = vm.selectedPostedGame.subscribe(function (selectedPostedGame) {
+                    if (selectedPostedGame != null) {
+                        vm.gameView(true);
+                        vm.loadingSelectedPostedGame(true);
+                        
+                        setTimeout(function () {
+                            updatePostedGame(vm, scrollElm);
+                        }, 500);
+                    }
+                });
+
+                scn.popup.registerPopupDestructor(that, function () {
+                    if (subscription) {
+                        subscription.dispose();
+                    }
+                });
+
+                ko.applyBindings(vm, that.get(0));
+
+                if (selectIscr) {
+                    selectIscr.refresh();
+                }
+
+                var updateInterval = setInterval(function () {
+                    if (!scn.paused && vm.gameView()) {
+                        updatePostedGame(vm, scrollElm);
+                    }
+                }, REFRESH_INTERVAL);
+
+                scn.popup.registerPopupDestructor(that, function () {
+                    window.clearInterval(updateInterval);
+                });
+            }
+        );
+    },
+
+    updatePostedGame = function (vm, scrollElm) {
+        if (!vm.selectedPostedGame())
+            return;
+
+        if (vm.refreshing())
+            return;
+        
+        vm.refreshing(true);
+
+        postedGameStatusPopup.getPostedGame(
+            vm.selectedPostedGame().id,
+            function (data) {
+                ko.mapping.fromJS(
+                    data,
+                    {
+                        key: function(item) {
+                            return ko.utils.unwrapObservable(item.bowlingGameId);
+                        }
+                    },
+                    vm.postedGames);
+                vm.loadingSelectedPostedGame(false);
+                vm.refreshing(false);
+
+                var found = false;
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i].bowlingGameId == vm.selectedPostedGame().creatorBowlingGame.id) {
+                        vm.myGameScore(data[i].handicapScore);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    vm.myScore(0);
+                }
+
+                scrollElm.children(":first").height(100 * data.length);
+                if (scrollElm) {
+                    var domScrollElm = scrollElm.get(0);
+                    if (domScrollElm && domScrollElm.iScroll) {
+                        domScrollElm.iScroll.refresh();
+                    }
+                }
+            });
+    },
+
+    postedGameStatusPopup.getPostedGameList = function (successCallback) {
+        scn.showLoading();
+        scn.ajax({
+            type: "GET",
+            url: scn.apiAddress + "bowlingcompetition/posted",
+            success: function (data) {
+                successCallback(data)
+                scn.hideLoading();
+            },
+            error: function (jqXhr, status) {
+                scn.hideLoading();
+                alert('An error occurred');
+            }
+        });
+    },
+
+
+    postedGameStatusPopup.getPostedGame = function (competitionId, successCallback) {
+        scn.ajax({
+            type: "GET",
+            url: scn.apiAddress + "bowlingcompetition/posted/" + competitionId,
+            success: function (data) {
+                successCallback(data);
+                scn.hideLoading();
+            },
+            error: function (jqXhr, status) {
+                scn.hideLoading();
+                alert('An error occurred');
+            }
+        });
+    },
+
+    postedGameStatusPopup.gameSelect = function () {
+        var game = ko.dataFor(this.element);
+
+        var parentElm = jQuery(this.element).parents("#popup:first");
+        var parentViewModel = ko.dataFor(parentElm.get(0));
+        parentViewModel.selectedPostedGame(game);
+    },
+
+    postedGameStatusPopup.backToGameSelect = function () {
+        var viewModel = ko.dataFor(this.element);
+        viewModel.gameView(false);
+        setTimeout(function () {
+            viewModel.selectedPostedGame(null);
+        }, 500);
+    },
+
+    postedGameStatusPopup.getScoreDifferential = function (elm, myScore, theirScore) {
+        elm = jQuery(elm);
+        var value = theirScore - myScore;
+        if (value > 0) {
+            value = "(+" + value + ")";
+            elm.css("color", "#06fa11");
+        } else if (value < 0) {
+            value = "(" + value + ")";
+            elm.css("color", "#FF0000");
+        } else {
+            value = "";
+            elm.css("color", "#ffffff");
+        }
+
+        return value;
+    }
+
+})(scn.views.postedGameStatusPopup = scn.views.postedGameStatusPopup || {});
+</script>
+
+<div id="popup" data-load="scn.views.postedGameStatusPopup.load" class="hundred-percent-width">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span id="history-popup-title">My Opponents</span>
+        </div>
+    </div>
+    <div data-bind="if: postedGameList().length === 0" class="centered light-text" style="width: 98%; margin-top: 40px;">
+        You haven't posted any games yet!  You can post past games from the My History button on the home screen!
+    </div>
+    <div class="popup-container hundred-percent-width popup-content" style="height: 100%; margin-top: -10px" data-bind="visible: postedGameList().length > 0">
+        <div>
+            <div class="drill-down-section" style="width: 460px;" id="posted-game-select-content" data-bind="slideVisible: !gameView(), slideVisibleDirection: 'right'">
+                <div id="posted-game-select-scroll" style="height: 195px;">
+                    <ul class="list-view">
+                        <li class="divider">Select your Game</li>
+                        <!-- ko foreach: postedGameList -->
+                        <li><a data-bind="tap: scn.views.postedGameStatusPopup.gameSelect, text: name" data-tap-alloweventbubble="true"></a></li>
+                        <!-- /ko -->
+                    </ul>
+                </div>
+            </div>
+          
+            <div class="drill-down-section" style="width: 460px" data-bind="slideVisible: gameView, slideVisibleDirection: 'left'">
+                <div class="drill-down-header">
+                    <button class="button small-round-button orange-button light-text" data-bind="tap: scn.views.postedGameStatusPopup.backToGameSelect">Back</button>
+                </div>
+
+                <div data-bind="if: postedGameList().length === 0">
+                    You have no posted games.
+                </div>
+
+                <div data-bind="visible: postedGameList().length !== 0">
+                    <div data-bind="visible: loadingSelectedPostedGame" class="hundred-percent-width centered">
+                        Loading Opponents...Please wait...
+                    </div>
+
+                    <div id="game-history-scroll" style="height: 163px" data-bind="visible: !loadingSelectedPostedGame()">
+
+                        <div class="frame-section-live" data-bind="foreach: postedGames">
+                              <div class="player-info-container">
+                                  <span class="username" data-bind="text: name" style="margin-top: 5px"></span>
+                                  <span style="margin-top: 5px; margin-left: 10px; width: 145px; float: right">
+                                      <span style="float: right;margin-left: 3px;" data-bind="text: scn.views.postedGameStatusPopup.getScoreDifferential($element, $parent.myGameScore(), handicapScore()), visible: bowlingGameId() != $parent.selectedPostedGame().creatorBowlingGame.id"></span> Handicap Score: <span style="float: right;" data-bind="text: handicapScore"></span>
+                                  </span>
+                              </div>
+                            <div data-template="Scores" class="popup-scores"></div>
+                        </div>
+
+                    </div>
+
+                    <div data-bind="if: !loadingSelectedPostedGame() && postedGames().length === 0">
+                        No opponents
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

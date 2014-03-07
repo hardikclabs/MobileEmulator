@@ -1,0 +1,60 @@
+<script type="text/javascript">
+    (function (historyPopup) {
+        historyPopup.showGameHistory = function () {
+            var elm = jQuery(this);
+            var popupElm = elm.parents("#popup:first");
+
+            jQuery("#history-popup-button-container .blue-general-button-depressed")
+                .removeClass("blue-general-button-depressed");
+
+            var gameHistoryPopup = jQuery("#history-popup-game-history", popupElm);
+
+            jQuery("#history-popup-posted-game-status, #history-popup-credit-history", popupElm)
+                .addClass("hidden");
+            gameHistoryPopup.removeClass("hidden");
+
+            elm.addClass("blue-general-button-depressed");
+            jQuery("#history-popup-title", popupElm).text("Game History");
+
+            jQuery("[data-wants-visible-trigger]", gameHistoryPopup).trigger("visible");
+        },
+
+        historyPopup.showCreditHistory = function () {
+            var elm = jQuery(this);
+            var popupElm = elm.parents("#popup:first");
+
+            jQuery("#history-popup-button-container .blue-general-button-depressed")
+                .removeClass("blue-general-button-depressed");
+
+            var creditHistoryPopup = jQuery("#history-popup-credit-history", popupElm);
+            creditHistoryPopup.removeClass("hidden");
+            elm.addClass("blue-general-button-depressed");
+
+            jQuery("#history-popup-posted-game-status, #history-popup-game-history", popupElm).addClass("hidden");
+            jQuery("#history-popup-title", popupElm).text("Credit History");
+
+            jQuery("[data-wants-visible-trigger]", creditHistoryPopup).trigger("visible");
+        }
+    }(window.scn.views.historyPopup = window.scn.views.historyPopup || {}));
+</script>
+<div id="popup" class="popup-bg" style="height: 250px;">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span id="history-popup-title">Game History</span>
+        </div>
+    </div>
+    <ul style="margin: 25px 0 0 90px;">
+        <li class="button-container" id="history-popup-button-container">
+            <div class="in-game-button blue-general-button blue-general-button-depressed" data-tap="scn.views.historyPopup.showGameHistory">
+                <span>Game History</span>
+            </div>
+
+            <div class="in-game-button blue-general-button" data-tap="scn.views.historyPopup.showCreditHistory">
+                <span>Credit History</span>
+            </div>
+        </li>
+    </ul>
+    <div class="clear"></div>
+    <div data-subview="GameHistoryPopup" id="history-popup-game-history" data-bind="allowBindings: false"></div>
+    <div data-subview="CreditHistoryPopup" id="history-popup-credit-history" data-bind="allowBindings: false" class="hidden"></div>
+</div>

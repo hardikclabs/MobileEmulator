@@ -1,0 +1,108 @@
+<script type="text/javascript">
+    (function (creditHistoryPopup) {
+
+        creditHistoryPopup.viewModel = function () {
+            this.creditHistory = ko.observableArray();
+        },
+
+        creditHistoryPopup.load = function () {
+            scn.showLoading();
+
+            var that = this;
+
+            this.bind("visible", creditHistoryPopup.onShow);
+
+            var leaderboardScrollElm = jQuery("#credit-history-scroll", this);
+            var leaderboardScrollDom = leaderboardScrollElm.get(0);
+
+            var leaderboardiScroll = new iScroll(leaderboardScrollDom, {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: true
+            });
+
+            scn.popup.registerPopupDestructor(this, function () {
+                if (leaderboardScrollDom && leaderboardScrollDom.iScroll) {
+                    leaderboardScrollDom.iScroll.destroy();
+                    leaderboardScrollDom.iScroll = null;
+                }
+            });
+
+            creditHistoryPopup.getCreditHistory(
+                function (data) {
+                    var viewModel = new creditHistoryPopup.viewModel();
+                    viewModel.creditHistory(data);
+                    ko.applyBindings(viewModel, that.get(0));
+                    scn.hideLoading();
+
+                    leaderboardScrollElm.children(":first").height((data.length * 41) + 50);
+
+                    if (leaderboardScrollDom.iScroll) {
+                        leaderboardScrollDom.iScroll.refresh();
+                    }
+                }
+            );
+        },
+
+        creditHistoryPopup.getCreditHistory = function (successCallBack) {
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "usercredittransaction/log",
+                success: function (data) {
+                    successCallBack(data);
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+                    alert('An error occurred');
+                }
+            });
+        },
+
+        creditHistoryPopup.onShow = function () {
+            var leaderboardScrollElm = jQuery("#credit-history-scroll").get(0);
+            if (leaderboardScrollElm && leaderboardScrollElm.iScroll) {
+                leaderboardScrollElm.iScroll.refresh();
+            }
+        }
+
+    }(window.scn.views.creditHistoryPopup = window.scn.views.creditHistoryPopup || {}));
+
+</script>
+
+<div id="credit-history-popup" data-load="window.scn.views.creditHistoryPopup.load" data-wants-visible-trigger="true">
+    <div class="full-list hundred-percent-width">
+
+        <!----- TABLE HEADER --------->
+
+        <div id="table">
+            <ul style="padding: 0;">
+                <li class="table-header">
+                    <ul class="hundred-percent-width">
+                        <li class="column-twenty-percent">Date</li>
+                        <li class="column-twenty-percent">Credits</li>
+                        <li class="column-fifty-percent">Notes</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <div id="credit-history-scroll" class="hundred-percent-width" style="height: 140px">
+                <!-----  leaderboard entries --------->
+                <ul id="scrollable" data-bind="foreach: creditHistory" style="padding:0;">
+                    <li class="opponent">
+                        <ul class="hundred-percent-width">
+                            <li data-bind="text: moment(createdDateTime).format('MMMM D YYYY, h:mm a')" class="column-twenty-percent"></li>
+                            <li data-bind="text: credits" class="column-twenty-percent"></li>
+                            <li data-bind="text: scn.limitCharacters(notes, 75)" class="column-fifty-percent"></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+      
+
+    </div>
+</div>
+    

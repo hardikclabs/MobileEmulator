@@ -1,0 +1,107 @@
+<script type="text/javascript">
+(function (preLoginLanding) {
+    preLoginLanding.load = function () {
+        console.log("load");
+        // if the user hasn't watched the intro video yet, show them now
+        if (localStorage.getItem("scn-xbowling-sawintro") != "true") {
+            localStorage.setItem("scn-xbowling-sawintro", "true");
+
+            var videoWrapper = jQuery("<span />");
+            videoWrapper.insertBefore(jQuery("#wrapper"));
+            jQuery("#wrapper").hide();
+
+            scn.video.play("intro.m4v", {
+                fullScreen: true,
+                appendTo: videoWrapper,
+                videoId: "introvideo",
+                timeout: 12500,  // video is 9 seconds, set timeout for 12.5 seconds just in case something goes wrong
+                onEnded: function () {
+                    jQuery(this).detach();
+                    jQuery("#wrapper").show();
+                }
+            });
+        }
+        
+        if (scn.hasSession()) {
+            scn.viewEngine.changeView("new-1-MainDashboard");
+        }
+    },
+    preLoginLanding.signUpTap = function () {
+        scn.popup.show("Login", {
+            viewModel: {
+                intent: "SignUp"
+            },
+            callback: function (data) {
+                if (data && data.loginSuccess) {
+                    scn.viewEngine.changeView("new-1-MainDashboard");
+                }
+            },
+            height: 260
+        });
+    },
+    preLoginLanding.signInTap = function () {
+        scn.popup.show("Login", {
+            callback: function (data) {
+                if (data && data.loginSuccess) {
+                    scn.viewEngine.changeView("new-1-MainDashboard");
+                }
+            },
+            height: 260
+        });
+    },
+    preLoginLanding.tutorialTap = function () {
+        var tutWindow = window.open("http://tutorial.xbowling.com?width=" + scn.viewEngine.windowWidth, "_blank", "location=no");
+        scn.injectWindowLoadingMessage(tutWindow, "Please wait...", "Loading");
+        tutWindow.addEventListener("loadstart", function (e) {
+            if (e.url.indexOf("#close") > -1) {
+                tutWindow.close();
+            }
+        }, false);
+    }
+}(window.scn.views.preLoginLanding = window.scn.views.preLoginLanding || {}));
+</script>
+<div id="non-animated-bg" ></div>
+
+<div id="intro-page" data-load="scn.views.preLoginLanding.load">
+    <div class="register-header-container">
+        <div class="version">
+            <p></p>
+        </div>
+    </div>
+
+    <div class="register-content-container">
+        <div class="intro-wrapper">
+            <div class="logo">
+                <span>The all new</span>
+                <img src="xbowlingNewLogo-notagline.png" />
+            </div>
+            <div class="register-text">
+                Bowl. Have Fun. Win Prizes.
+            </div>
+        </div>
+    </div>
+
+    <div class="register-footer">
+        <div class="button-wrapper">
+            <div class="large-button-container">
+                <button type="submit" class="large-button green-general-button" data-tap="scn.views.preLoginLanding.signUpTap">
+                    <span>Sign Up</span>
+                </button>
+            </div>
+
+            <div class="large-button-container">
+                <button type="submit" class="large-button orange-general-button" data-tap="scn.views.preLoginLanding.signInTap">
+                    <span>Log In</span>
+                </button>
+            </div>
+
+            <div class="large-button-container">
+                <button type="submit" class="large-button blue-general-button" data-tap="scn.views.preLoginLanding.tutorialTap">
+                    <span>Learn More</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+

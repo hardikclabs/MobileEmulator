@@ -1,0 +1,14 @@
+<script type="text/javascript">
+(function (fullSizeImagePopup) {
+    fullSizeImagePopup.load = function () {
+        var elm = jQuery(this);
+        var popupViewModel = scn.popup.getViewModel(elm);
+        var img = jQuery("<img />")
+            .attr("src", popupViewModel.imageUrl)
+            .css("height", elm.height());
+        elm.append(img);
+    }
+}(window.scn.views.fullSizeImagePopup = window.scn.views.fullSizeImagePopup || {}));
+</script>
+<div id="popup" data-load="scn.views.fullSizeImagePopup.load" class="centered">
+</div>

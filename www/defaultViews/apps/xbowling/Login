@@ -1,0 +1,442 @@
+<script type="text/javascript">
+    (function (login) {
+        login.views = {
+            LOGIN: 1,
+            SIGNUP_STEP1: 2,
+            SIGNUP_STEP2: 3,
+            SIGNUP_COMPLETE: 4
+        },
+
+        login.viewModel = function () {
+            this.view = ko.observable(login.views.LOGIN);
+            this.email = ko.observable("");
+            this.password = ko.observable("");
+            this.username = ko.observable("");
+            this.emailError = ko.observable(false);
+            this.passwordError = ko.observable(false);
+            this.usernameError = ko.observable(false);
+            this.usernameUnavailable = ko.observable(false);
+        },
+
+        login.load = function () {
+            var loginForm = jQuery("#login-form", this);
+            var signupStep1Form = jQuery("#signup-step1-form", this);
+            var signupStep2Form = jQuery("#signup-step2-form", this);
+
+            loginForm.bind("submit", login.submitLogin);
+            signupStep1Form.bind("submit", login.submitSignUpStep1);
+            signupStep2Form.bind("submit", login.submitSignUpStep2);
+
+            var viewModel = new login.viewModel();
+
+            var popupViewModel = scn.popup.getViewModel(this);
+            if (popupViewModel && popupViewModel.intent) {
+                if (popupViewModel.intent == "SignUp") {
+                    viewModel.view(login.views.SIGNUP_STEP1);
+                }
+            }
+
+            ko.applyBindings(viewModel, this.get(0));
+        },
+
+        login.validate = function (viewModel) {
+            var email = viewModel.email();
+            var password = viewModel.password();
+
+            var message = "";
+            if (email == "") {
+                message += "Please enter a valid email address.";
+                viewModel.emailError(true);
+            } else {
+                viewModel.emailError(false);
+            }
+
+            if (password == "") {
+                if (message != "") {
+                    message += "\n";
+                }
+
+                message += "Please enter a valid password.";
+                viewModel.passwordError(true);
+            } else {
+                viewModel.passwordError(false);
+            }
+
+            if (message != "") {
+                alert(message);
+                return false;
+            }
+
+            return true;
+        },
+
+        login.submitLogin = function (event) {
+            cancelEvent(event);
+
+            var form = jQuery(this);
+
+            var viewModel = ko.dataFor(form.get(0));
+
+            if (!login.validate(viewModel)) {
+                return false;
+            }
+
+            scn.showLoading();
+
+            scn.ajax({
+                type: "POST",
+                url: scn.apiAddress + "user/authenticate",
+                data: { email: viewModel.email(), password: viewModel.password() },
+                success: function (data) {
+                    scn.hideLoading();
+
+                    if (data) {
+                        scn.persistSession(data);
+
+                        // hide the popup
+                        scn.popup.hide(form, { loginSuccess: true });
+                    } else {
+                        alert("An error occurred while logging in.  Please try again.");
+                    }
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+
+                    if (jqXhr.status == 401) {
+                        alert("Invalid Email or Password.");
+                    } else {
+                        alert("An error occurred while logging in.  Please try again.");
+                    }
+                }
+            });
+
+            return false;
+
+        },
+
+        login.submitSignUpStep1 = function (event) {
+            cancelEvent(event);
+
+            var viewModel = ko.dataFor(this);
+
+            if (!login.validate(viewModel)) {
+                return false;
+            }
+
+            scn.showLoading();
+            scn.ajax({
+                type: "POST",
+                url: scn.apiAddress + "user",
+                data: { email: viewModel.email(), password: viewModel.password() },
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+                    if (data) {
+                        scn.persistSession(data);
+
+                        // goto step 2
+                        viewModel.view(login.views.SIGNUP_STEP2);
+                    } else {
+                        alert("An error occurred while signing you up.  Please try again.");
+                    }
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+
+                    if (jqXhr.status == 409) {
+                        alert("A user with that email address already exists.");
+                    } else {
+                        alert("An error occurred while signing you up.  Please try again.");
+                    }
+                }
+            });
+
+            return false;
+        },
+
+        login.submitSignUpStep2 = function (event) {
+            cancelEvent(event);
+
+            var elm = jQuery(this);
+            var parentElm = elm.parents("#signup-step2");
+
+            var viewModel = ko.dataFor(this);
+
+            // validate
+            if (viewModel.username == "") {
+                viewModel.usernameError(true);
+                alert("Please enter a username.");
+                return false;
+            } else {
+                viewModel.usernameError(false);
+            }
+
+            // submit a username change request
+            scn.showLoading();
+
+            scn.ajax({
+                type: "POST",
+                url: scn.apiAddress + "user/current/username",
+                data: { username: viewModel.username() },
+                success: function (data) {
+                    scn.hideLoading();
+
+                    viewModel.view(login.views.SIGNUP_COMPLETE);
+
+                    if (scn.screenName) {
+                        scn.screenName(viewModel.username());
+                    }
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+
+                    if (jqXhr.status == 409) {
+                        // user name already taken
+                        viewModel.usernameUnavailable(true);
+                        //var messageContainer = jQuery("#message-container", parentElm);
+                        //messageContainer.addClass("animated fadeIn red-tile");
+
+                        //var button = jQuery("#submit-button", parentElm)
+                        //    .removeClass("blue-tile")
+                        //    .addClass("animated fadeIn red-tile");
+                    } else {
+                        alert("An error occurred setting your User Name.  Please try again.");
+                    }
+                }
+            });
+
+            return false;
+        },
+
+        login.loginWithFacebook = function () {
+            var elm = this;
+
+            if (!window.CDV || !window.CDV.FB) {
+                alert("Facebook login is not currently available on this device.");
+                return;
+            }
+
+            var facebook = CDV.FB;
+
+            facebook.login(
+                { scope: "email" },
+                function (response) {
+                    console.log("In success method from FB");
+                    if (!response) {
+                        console.log("No response from Facebook");
+                        scn.hideLoading();
+                        return;
+                    }
+
+                    if (response.status == "connected" && response.authResponse) {
+                        scn.showLoading();
+
+                        scn.ajax({
+                            type: "POST",
+                            url: scn.apiAddress + "user/authenticate/facebook",
+                            data: { token: response.authResponse.accessToken },
+                            success: function (data, txtStatus, jqXhr) {
+                                scn.hideLoading();
+
+                                if (data) {
+                                    scn.persistSession(data);
+
+                                    if (jqXhr.status === 201) {
+                                        // created new account
+                                        // show the change username dialog
+                                        var viewModel = ko.dataFor(elm);
+                                        viewModel.view(login.views.SIGNUP_STEP2);
+                                    } else {
+                                        // just a login, hide the popup
+                                        scn.popup.hide(elm, { loginSuccess: true });
+                                    }
+                                    //var viewParams = scn.viewEngine.getViewIdFromHash();
+                                    //var returnView = decodeURIComponent(viewParams.params.return);
+                                    //scn.viewEngine.changeView(returnView);
+                                } else {
+                                    alert("An error occurred while logging in.  Please try again.");
+                                }
+                            },
+                            error: function (jqXhr, status) {
+                                alert("Invalid Email or Password. Please try again.");
+                                scn.hideLoading();
+                            }
+                        });
+                    }
+                },
+                function (response) {
+                    console.log("Facebook login cancel");
+                }
+            );
+        },
+
+        login.forgotPasswordTap = function () {
+            scn.popup.hide(this, { loginSuccess: false });
+            scn.popup.show("SignUpReset");
+        },
+
+        login.signUpTap = function () {
+            var viewModel = ko.dataFor(this);
+            viewModel.view(login.views.SIGNUP_STEP1);
+        },
+
+        login.backToLoginTap = function () {
+            var viewModel = ko.dataFor(this);
+            viewModel.view(login.views.LOGIN);
+        },
+
+        login.completeTap = function () {
+            // hide the popup
+            scn.popup.hide(this, { loginSuccess: true });
+        },
+
+        login.termsOfServiceTap = function () {
+            window.open(scn.legal.termsOfServiceUrl, "_blank", "location=no,closebuttoncaption=I Agree");
+        }
+    }(window.scn.views.login = window.scn.views.login || {}));
+</script>
+    <div id="popup" data-load="scn.views.login.load">
+        <div class="popup-header"><div class="centered-container">
+            <span data-bind="visible: view() == scn.views.login.views.LOGIN">Log In</span>
+            <span data-bind="visible: view() == scn.views.login.views.SIGNUP_STEP1">Sign up</span>
+            <span data-bind="visible: view() == scn.views.login.views.SIGNUP_STEP2">Pick a Username</span>
+            <span data-bind="visible: view() == scn.views.login.views.SIGNUP_COMPLETE">Congratulations!</span>
+         </div>
+        </div>
+        <div id="login" data-bind="visible: view() == scn.views.login.views.LOGIN">
+            <div class="form-container">    
+            <form action="#" name="login-form" id="login-form">
+                <ul>
+                    <li>
+                        <input class="signup no-uppercase" type="email" id="email" placeholder="EMAIL" data-bind="value: email, css: { error: emailError }" />
+                    </li>
+                    <li>
+                        <input class="signup no-uppercase" type="password" id="password" placeholder="PASSWORD" data-bind="value: password, css: { error: passwordError }" />
+                    </li>
+                    <li class="login-buttons">
+                        <div class="button-container">
+                            <div class="medium-button blue-general-button " data-tap="scn.views.login.signUpTap">
+                                <span>Sign up!</span>
+                            </div>
+                        </div>
+                        <div class="button-container">
+                            <div class="medium-button blue-general-button " data-tap="scn.views.login.forgotPasswordTap">
+                                <span class="two-line-text">Forgot<br />
+                                    Password</span>
+                            </div>
+                        </div>
+                        <div class="button-container">
+                            <button class="medium-button orange-general-button no-margin">
+                                <span>Log In</span>
+                            </button>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="facebook-button-container" data-tap="scn.views.login.loginWithFacebook">
+                            <div class="facebook-button">
+                                <img src="button-facebook-login.png" />
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </form>
+            </div>
+        </div>
+
+        <div id="signup-step1" class="hidden" style="min-height: 200px" data-bind="showOnBind: true, visible: view() == scn.views.login.views.SIGNUP_STEP1">
+            <div class="form-container">    
+            <form action="#" name="signup-step1-form" id="signup-step1-form">
+                <ul>
+                
+                    <li>
+                        <input class="signup no-uppercase" type="email" id="signUpStep1-email" placeholder="EMAIL" data-bind="value: email, css: { error: emailError }" />
+                    </li>
+                    <li>
+                        <input class="signup no-uppercase" type="password" id="signUpStep1-password" placeholder="PASSWORD" data-bind="value: password, css: { error: passwordError }" />
+                    </li>
+                    <li class="login-buttons">
+                        <div class="button-container remove">
+                            <div class="medium-button blue-general-button " data-changeview="SignUp1">
+                                <span>Log In</span>
+                            </div>
+                        </div>
+                        <div class="button-container" data-tap="scn.views.login.backToLoginTap">
+                            <div class="medium-button blue-general-button ">
+                                <span class="two-line-text">Back To<br />
+                                    Log In</span>
+                            </div>
+                        </div>
+                        <div class="button-container">
+                            <button type="submit" class="medium-button orange-general-button no-margin">
+                                <span>Done</span>
+                            </button>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="facebook-button-container" data-tap="scn.views.login.loginWithFacebook">
+                            <div class="facebook-button">
+                                <img src="button-facebook-signup.png" />
+                            </div>
+                        </div>
+                    </li>
+                    <li class="light-text" style="font-size: 10px; margin-top: -10px">
+                        By signing up and using this app, you agree to the XBowling&reg; <span style="color: #1773B1; font-weight: bold;" data-tap="scn.views.login.termsOfServiceTap">Terms of Use.</span>
+                    </li>
+                </ul>
+            </form>
+            </div>
+       </div>
+
+        <div id="signup-step2" class="hidden" data-bind="showOnBind: true, visible: view() == scn.views.login.views.SIGNUP_STEP2">
+            <div id="content" class="font-interstate">
+                <div class="form-container animated fadeIn" id="form-container">
+                    <form class="signup-form partial-rounded light-grey-tile" id="signup-step2-form" name="signup-step2-form">
+                        <ul>
+                            <li>
+                                <input class="signup" type="text" id="username" placeholder="Username" data-bind="value: username, css: { error: usernameError }" />
+                            </li>
+                            <li class="login-buttons">
+                                <br />
+                                <div class="button-container" style="float: right">
+                                    <button type="submit" id="submit-username-butotn" class="medium-button orange-general-button no-margin">
+                                        <span>Submit</span>
+                                    </button>
+                                </div>
+                            </li>
+                        </ul>
+                    </form>
+            
+                    <div class="form-message partial-rounded tile" id="message-container">
+                        <div class="error-container animated" data-bind="visible: usernameUnavailable, css: { fadeIn: usernameUnavailable }">
+                            <div class="rejected"><img src="signup-rejected.png" width="30"></div>
+                            <div class="error-message">Username unavailable</div>
+                        </div>
+                        <p>Username must be alphanumeric and at least 4 to 12 characters in length</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="signup-complete" class="hidden" style="min-height: 200px;" data-bind="showOnBind: true, visible: view() == scn.views.login.views.SIGNUP_COMPLETE">
+            <div class="signup-container animated fadeIn" id="success-container">    
+                    <div class="username-container">
+                        <div class="username"><h1 class="light-text" data-bind="text: username"></h1></div>
+                    </div>
+        
+                    <div class="form-message partial-rounded tile">
+                        <div class="success-container">
+                            <div class="accepted"><img src="signup-accepted.png" width="30"></div>
+                            <div class="error-message font-interstate">Username available</div>
+                        </div>
+                    </div>
+                    <div class="button-container" style="float: right" data-tap="scn.views.login.completeTap">
+                        <div class="medium-button orange-general-button no-margin">
+                            <span>Complete</span>
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+        
+    
+    

@@ -1,0 +1,56 @@
+<script type="text/javascript">
+
+    (function (challengeHistory) {
+
+        challengeHistory.load = function () {
+
+            var viewModel = ko.mapping.fromJS(scn.popup.getViewModel(this));
+            ko.applyBindings(viewModel, this.get(0));
+        },
+
+        challengeHistory.hidePopup = function () {
+            scn.popup.hide(this);
+        }
+
+    })(window.scn.views.challengeHistory = window.scn.views.challengeHistory || {});
+
+</script>
+
+
+<div id="game-challenges-history-popup" class="animated bounceIn" data-load="scn.views.challengeHistory.load">
+    <div class="popup-header">
+        <div class="close-popup blue-tile popup-margin-top">
+            <div class="close-icon" data-tap="window.scn.views.gameHistoryByDate.hidePopup">
+                <img src="close.png" />
+            </div>
+            <br class="clear" />
+            <div id="challenge-result-loading" data-bind="visible: false">Loading...</div>
+
+            <div style="margin: 5px;" id="no-challenge-message" data-bind="visible: $data.length === 0">No Challenges were entered during this Game!</div>
+
+            <div style="margin: 5px;" data-bind="visible: $data.length > 0">
+                <table id="challenge-list" cellpadding="5">
+                    <thead>
+                        <tr>
+                            <th>Challenge</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody data-bind="foreach: $data">
+                        <tr>
+                            <td>
+                                <span data-bind="text: challenge.name" />
+                            </td>
+                            <td>
+                                <span data-bind="text: challengeState" />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="fadeIn done-btn partial-rounded orange-tile button popup-button popup-return-button"
+                 data-tap="scn.views.challengeHistory.hidePopup">OK</div>
+        </div>
+    </div>
+</div>

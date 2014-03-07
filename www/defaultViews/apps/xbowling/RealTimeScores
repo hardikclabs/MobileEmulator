@@ -1,0 +1,75 @@
+<script type="text/javascript">
+    (function (realTimeScores) {
+        realTimeScores.refreshRate = 7500,
+
+        realTimeScores.laneNumber = -1,
+        realTimeScores.venue = -1,
+
+        realTimeScores.load = function () {
+            scn.showLoading();
+
+            var elm = jQuery(this);
+
+            var pageData = scn.viewEngine.getViewIdFromHash();
+            realTimeScores.laneNumber = pageData.params.laneNumber;
+            realTimeScores.venue = pageData.params.venue;
+
+            var header = elm.siblings("#venueNameHeader");
+            
+            header.text(pageData.params.venueName);
+            header.append(jQuery("<span/>").text(" Lane " + realTimeScores.laneNumber));
+
+            window.games = ko.observable([]);
+            window.gameNames = {};
+
+            realTimeScores.loadScores(function () {
+                scn.hideLoading();
+                scn.views.scoresView.load();
+            });
+
+            var intervalTo = setInterval(realTimeScores.loadScores, realTimeScores.refreshRate);
+            scn.viewEngine.registerTimeout("realTimeScoresLaneView", intervalTo);
+        },
+
+        realTimeScores.loadScores = function (callback) {
+            scn.showLoading();
+
+            var timeoutWindow = scn.gameplay.getGameDateTimeWindow(90);
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "venue/" + realTimeScores.venue + "/lane/" + realTimeScores.laneNumber,
+                data: { from: timeoutWindow.from, to: timeoutWindow.to },
+                complete: function (data) {
+                    scn.hideLoading();
+
+                    var games = ko.mapping.fromJSON(data.responseText)();
+
+                    var windowGames = window.games();
+                    
+                    for (var i = 0; i < games.length; i++) {
+                        var game = games[i];
+                        var gameId = game.name();
+                        if (!window.gameNames[gameId]) {
+                            windowGames.push(game);
+                            window.gameNames[gameId] = windowGames.length - 1;
+                        } else {
+                            var gameIndex = window.gameNames[gameId];
+                            ko.mapping.fromJS(game, windowGames[gameIndex]);
+                        }
+                    }
+
+                    if (callback) {
+                        callback();
+                    }
+                }
+            });
+        }
+    }(window.scn.views.realTimeScores = window.scn.views.realTimeScores || {}));
+</script>
+
+<span data-template="Header"></span>
+<h1 class="small" id="venueNameHeader"></h1>
+
+<div class="venue-games" data-load="scn.views.realTimeScores.load">
+    <span data-template="ScoresView"></span>
+</div>

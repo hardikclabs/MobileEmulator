@@ -1,0 +1,144 @@
+<script type="text/javascript">
+    (function (redemptionHistory) {
+        redemptionHistory.viewModel = function () {
+            this.items = ko.mapping.fromJS([]);
+            this.loading = ko.observable(true);
+            this.availablePoints = ko.observable(0);
+        },
+
+        redemptionHistory.load = function () {
+            var elm = jQuery(this);
+
+            var viewModel = new redemptionHistory.viewModel();
+
+            if (scn.walletData) {
+                viewModel.availablePoints(scn.walletData.availableRewardPoints);
+            }
+
+            ko.applyBindings(viewModel, elm.get(0));
+
+            // load wallet info
+            scn.ajax({
+                url: scn.apiAddress + "userprofile/wallet",
+                type: "GET",
+                dataType: "json",
+                success: function (data) {
+                    scn.walletData = data;
+                    viewModel.availablePoints(data.availableRewardPoints);
+                },
+                error: function (jqXhr) {
+                    console.log("wallet request failed with error " + jqXhr.status);
+
+                    if (jqXhr.status == 401) {
+                        scn.clearSession();
+                        scn.viewEngine.changeView(scn.viewEngine.NOT_LOGGED_IN_VIEW);
+                    }
+                }
+            });
+
+            var scrollElm = jQuery("#redemption-history-scroll", this);
+            scrollElm.height(elm.height() - 100);
+            var iscr = new iScroll(scrollElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+
+            scn.viewEngine.registerViewDestructor(function () {
+                if (iscr) {
+                    iscr.destroy();
+                    iscr = null;
+                }
+            });
+
+            scn.ajax({
+                url: scn.apiAddress + "redemptionrequest",
+                type: "GET",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    viewModel.loading(false);
+                    ko.mapping.fromJS(data, viewModel.items);
+
+                    var innerScroll = scrollElm.children(":first");
+                    innerScroll.height((80 * data.length) + 50);
+                    if (iscr) {
+                        iscr.refresh();
+                    }
+                },
+                error: function (jqXhr, txtStatus) {
+                    alert("An error occurred loading your redemption history.  Please try again later.");
+                    redemptionHistory.close();
+                }
+            });
+        },
+        
+        redemptionHistory.showItem = function () {
+            var viewModel = ko.dataFor(jQuery(this.element).parents("#prize-list").get(0));
+            var product = ko.dataFor(this.element);
+            scn.viewEngine.changeView("RedemptionMerchandiseInfo", {
+                viewModel: {
+                    availablePoints: 0,
+                    viewOnly: true,
+                    product: product
+                }
+            });
+        },
+
+        redemptionHistory.close = function () {
+            var currentReferer = localStorage.getItem("redemptionReferer");
+            scn.viewEngine.changeView(currentReferer,
+                {
+                    slideDirection: "right"
+                });
+
+            localStorage.setItem("redemptionReferer", "");
+        },
+
+        redemptionHistory.back = function () {
+            scn.viewEngine.back();
+        }
+    }(window.scn.views.redemptionHistory = window.scn.views.redemptionHistory || {}));
+</script>
+
+<div id="redemption-wrapper" data-load="scn.views.redemptionHistory.load">
+    <div class="header">
+        <div class="header-left"> <div class="header-button orange-button" data-tap="scn.views.redemptionHistory.back"><p>Back</p></div></div>
+        <div class="header-center">
+            <h1>Your Purchase History</h1>
+        </div>
+        <div class="header-right">
+            <img src="home-icon.png" style="width: 49px; float: right; margin: 10px 10px 0 0" data-changeview="new-1-MainDashboard" data-changeview-direction="right" />
+        </div>
+    </div>
+    <div class="content">
+        <div data-bind="visible: loading" class="light-text centered">Loading your history.  Please wait...</div>
+        <div data-bind="visible: !loading() && items().length == 0" class="light-text centered">You haven't redeemed any SCN&trade; Reward Points for prizes yet!</div>
+        <div id="redemption-history-scroll">
+            <ul class="prize-list" id="prize-list">
+                <li data-bind="foreach: items">
+                    <ul class="inner-list-items" data-bind="with: product">
+                        <li class="prize-photo"><img data-bind="attr: { src: thumbnailUrl, alt: name }" /></li>
+                        <li class="prize-title"><p data-bind="text: name"></p></li>
+                        <li class="info-button hidden">i</li>
+                        <li class="buy-button"><button class="clean-gray" data-bind="tap: scn.views.redemptionHistory.showItem">VIEW</button></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer">
+        <div class="powered-by-container">
+            <div class="powered-by-text">powered<br />by</div>
+            <div class="scn-logo"><img src="logo-scn.png" /></div>
+        </div>
+        <div class="footer-button orange-button" data-changeview="RedemptionCategories"><p>Prizes</p></div>
+        <div class="scn-point-container">
+            <div class="scn-points" data-bind="text: scn.addCommas(availablePoints())"></div>
+            <div class="currency-type">SCN&trade;<br />REWARDS</div>
+        </div>
+    </div>
+</div>

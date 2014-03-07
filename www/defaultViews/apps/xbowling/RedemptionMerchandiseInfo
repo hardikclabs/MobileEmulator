@@ -1,0 +1,147 @@
+<script type="text/javascript">
+    (function (redemptionMerchandiseInfo) {
+        redemptionMerchandiseInfo.load = function () {
+            var viewModel = scn.viewEngine.getCurrentViewModel();
+            
+            if (!viewModel) {
+                scn.viewEngine.changeView("RedemptionMerchandise");
+                return;
+            }
+
+            var elm = jQuery(this);
+
+            if (scn.walletData) {
+                jQuery("#redemption-merchandise-info-points", elm).text(scn.addCommas(scn.walletData.availableRewardPoints));
+            } else {
+                // load wallet info
+                scn.ajax({
+                    url: scn.apiAddress + "userprofile/wallet",
+                    type: "GET",
+                    dataType: "json",
+                    success: function (data) {
+                        scn.walletData = data;
+                        jQuery("#redemption-merchandise-info-points", elm).text(scn.addCommas(data.availableRewardPoints));
+                    },
+                    error: function (jqXhr) {
+                        console.log("wallet request failed with error " + jqXhr.status);
+
+                        if (jqXhr.status == 401) {
+                            scn.clearSession();
+                            scn.viewEngine.changeView(scn.viewEngine.NOT_LOGGED_IN_VIEW);
+                        }
+                    }
+                });
+            }
+
+            ko.applyBindings(viewModel, elm.get(0));
+        },
+
+        redemptionMerchandiseInfo.toggleConfirm = function () {
+            var elm = jQuery(this.element);
+            jQuery("button", elm.parent()).toggle();
+        },
+
+         redemptionMerchandiseInfo.purchase = function () {
+             var viewModel = ko.dataFor(jQuery(this.element).parents("#prize").get(0));
+             var product = ko.dataFor(this.element);
+
+             // check legal to make sure we can redeem this amount of points
+             if (!scn.legal.checkRedemption(product.costPoints())) {
+                 return;
+             }
+
+             if (product.costPoints() <= viewModel.availablePoints) {
+                if (product.redemptionProductSizeGroup && product.redemptionProductSizeGroup.items && product.redemptionProductSizeGroup.items().length > 0) {
+                    scn.popup.show("RedemptionMerchandiseSizeSelectPopup", {
+                        viewModel: {
+                            redemptionProductSizeGroup: ko.mapping.toJS(product.redemptionProductSizeGroup)
+                        },
+                        callback: function (data) {
+                            if (data) {
+                                scn.viewEngine.changeView("RedemptionAddress?product=" + product.id() + "&costPoints=" + product.costPoints() + "&size=" + data.size);
+                            }
+                        }
+                    });
+                } else {
+                    scn.viewEngine.changeView("RedemptionAddress?product=" + product.id() + "&costPoints=" + product.costPoints());
+                }
+             } else {
+                 alert("You do not have enough points to purchase this item!", {
+                     title: "Uh oh!"
+                 });
+             }
+         },
+
+        redemptionMerchandiseInfo.back = function () {
+            scn.viewEngine.back();
+        },
+
+        redemptionMerchandiseInfo.close = function () {
+            var currentReferer = localStorage.getItem("redemptionReferer");
+            scn.viewEngine.changeView(currentReferer,
+                {
+                    slideDirection: "right"
+                });
+
+            localStorage.setItem("redemptionReferer", "");
+        },
+
+        redemptionMerchandiseInfo.showImage = function () {
+            var viewModel = ko.dataFor(this.element);
+            scn.popup.show("FullSizeImagePopup", {
+                viewModel: {
+                    imageUrl: viewModel.imageUrl()
+                }
+            });
+        }
+    }(window.scn.views.redemptionMerchandiseInfo = window.scn.views.redemptionMerchandiseInfo || {}));
+</script>
+
+<div id="redemption-wrapper" data-load="scn.views.redemptionMerchandiseInfo.load">
+    <div class="header">
+        <div class="header-left"> <div class="header-button orange-button" data-tap="scn.views.redemptionMerchandiseInfo.back"><p>Back</p></div></div>
+        <div class="header-center">&nbsp;</div>
+        <div class="header-right">
+            <img src="home-icon.png" style="width: 49px; float: right; margin: 10px 10px 0 0" data-changeview="new-1-MainDashboard" data-changeview-direction="right" />
+        </div>
+    </div>
+    <div class="content">
+        <ul class="prize-list" id="prize">
+            <li data-bind="with: product">
+                <ul class="inner-list-items" style="height: auto !important;">
+                    <li class="prize-photo" data-bind="tap: scn.views.redemptionMerchandiseInfo.showImage"><img data-bind="    attr: { src: thumbnailUrl, alt: name }"/></li>
+                    <li class="prize-title">
+                        <p data-bind="text: name"></p>
+                    </li>
+                    <li class="info-button hidden">i</li>
+                    <li class="buy-button" data-bind="visible: !$parent.viewOnly">
+                        <button class="clean-gray" data-bind="tap: scn.views.redemptionMerchandiseInfo.toggleConfirm">
+                            <span class="prize-cost" data-bind="text: scn.addCommas(costPoints())"></span>
+                            <span class="currency-type">SCN&trade;<br />REWARDS</span>
+                        </button>
+
+                        <button class="green-buy-button" style="display:none" data-bind="tap: scn.views.redemptionMerchandiseInfo.purchase">
+                            <span class="call-to-action">buy it now!</span>
+                        </button>
+                    </li>
+                    <li class="item-desc">
+                        <p data-bind="text: description"></p>
+                    </li>
+                </ul>
+            </li>
+
+
+        </ul>
+    </div>
+    <div class="footer">
+        <div class="powered-by-container">
+            <div class="powered-by-text">powered<br />by</div>
+            <div class="scn-logo"><img src="logo-scn.png" /></div>
+        </div>
+        <div class="footer-button orange-button" data-changeview="RedemptionHistory"><p>Your History</p></div>
+        <div class="scn-point-container">
+            <div class="scn-points" id="redemption-merchandise-info-points"></div>
+            <div class="currency-type">SCN&trade;<br />REWARDS</div>
+        </div>
+    </div>
+</div>

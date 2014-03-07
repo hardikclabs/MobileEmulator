@@ -1,0 +1,235 @@
+<script type="text/javascript">
+    (function (tellAFriendPopup) {
+        HAS_POSTED_TO_FACEBOOK_KEY = "hasPostedToFacebook",
+        HAS_POSTED_TO_TWITTER_KEY = "hasPostedToTwitter",
+        MESSAGE_TYPE = {
+            INITIAL: 1,
+            SUBSEQUENT: 2
+        },
+
+        showFacebookError = function (jqXhr) {
+            if (jqXhr.status === 409) {
+                // user has already posted the message, can't post a dupe
+                alert("You cannot post the same message twice in a row to Facebook. Please try again after you have posted a different tweet at least once!", { title: "Sorry!" });
+            } else if (jqXhr.status === 403) {
+                // user has already posted the message, can't post a dupe
+                alert("You cannot post to social media more than 6 times in a 1 month period.  Please try again later!", { title: "Sorry!" });
+            } else {
+                alert("An error occurred posting to Facebook.  Please try again later!", { title: "Sorry!" });
+            }
+        },
+
+        tellAFriendPopup.facebook = function () {
+            var elm = jQuery(this);
+
+            if (!window.CDV || !window.CDV.FB) {
+                alert("Facebook login is not currently available on this device.", { title: "Uh oh!" });
+                return;
+            }
+
+            var facebook = CDV.FB;
+
+            var message, messageType;
+            var hasPostedToFacebook = localStorage.getItem(HAS_POSTED_TO_FACEBOOK_KEY);
+            if (hasPostedToFacebook === "true") {
+                messageType = MESSAGE_TYPE.INITIAL;
+                message = "I just downloaded the Free XBowling App on my Apple/Android device, and I am winning real prizes while I bowl and compete!  Please join me by downloading and activating the App so we can enjoy XBowling together.  Download today: http://bit.ly/xbowlme"
+            } else {
+                messageType = MESSAGE_TYPE.SUBSEQUENT;
+                message = "I am really enjoying my XBowling experience!  If you have not downloaded or activated your XBowling App, what are you waiting for?  I am ready to challenge you to a friendly game of bowling!  Download today: http://bit.ly/xbowlme";
+            }
+
+            confirm(message, {
+                title: "Post to Facebook",
+                callback: function (response) {
+                    if (response === NOTIFICATION_BUTTONS.OK) {
+                        scn.showLoading();
+                        scn.ajax({
+                            url: scn.apiAddress + "userreferral/facebook",
+                            type: "POST",
+                            data: { referralMessageType: messageType },
+                            success: function (data) {
+                                scn.hideLoading();
+
+                                localStorage.setItem(HAS_POSTED_TO_FACEBOOK_KEY, "true");
+                                scn.popup.hide(elm);
+                                scn.views.footer.increasePoints(data.userPointTransaction.points);
+                            },
+                            error: function (jqXhr, txtStatus) {
+                                scn.hideLoading();
+                                if (jqXhr.status == 406) {
+                                    // user needs to authorize the app to post to their wall
+                                    facebook.login(
+                                        { scope: "email, publish_actions" },
+                                        function (response) {
+                                            console.log("In success method from FB");
+                                            if (!response || !response.authResponse) {
+                                                console.log("No response from Facebook");
+                                                return;
+                                            }
+
+                                            // good to go, try it again
+                                            scn.showLoading();
+                                            scn.ajax({
+                                                url: scn.apiAddress + "userreferral/facebook",
+                                                type: "POST",
+                                                data: { referralMessageType: messageType, accessToken: response.authResponse.accessToken },
+                                                success: function (data) {
+                                                    scn.hideLoading();
+
+                                                    localStorage.setItem(HAS_POSTED_TO_FACEBOOK_KEY, "true");
+                                                    scn.popup.hide(elm);
+                                                    scn.views.footer.increasePoints(data.userPointTransaction.points);
+                                                },
+                                                error: function (jqXhr, txtStatus) {
+                                                    scn.hideLoading();
+                                                    showFacebookError(jqXhr);
+                                                }
+                                            });
+                                        },
+                                        function () {
+                                            console.log("Facebook login cancelled");
+                                        });
+                                } else {
+                                    showFacebookError(jqXhr);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        },
+
+        showTwitterError = function (jqXhr) {
+            if (jqXhr.status === 409) {
+                // user has already posted the message, can't post a dupe
+                alert("You cannot post the same message twice in a row to Twitter. Please try again after you have posted a different tweet at least once!", { title: "Sorry!" });
+            } else if (jqXhr.status === 403) {
+                // user has already posted the message, can't post a dupe
+                alert("You cannot post to social media more than 6 times in a 1 month period.  Please try again later!", { title: "Sorry!" });
+            } else {
+                alert("An error occurred posting to Twitter.  Please try again later!", { title: "Sorry!" });
+            }
+        },
+
+        tellAFriendPopup.tweet = function () {
+            var elm = jQuery(this);
+
+            if (!window.twitterWeb) {
+                alert("Your device does not support tweeting!");
+                return;
+            }
+
+            var message, messageType;
+            var hasPostedToTwitter = localStorage.getItem(HAS_POSTED_TO_TWITTER_KEY);
+            if (hasPostedToTwitter === "true") {
+                messageType = MESSAGE_TYPE.INITIAL;
+                message = "I just downloaded the Free XBowling App, and I'm winning prizes while I bowl! Please download the App so we can bowl! http://bit.ly/xbowlme";
+            } else {
+                messageType = MESSAGE_TYPE.SUBSEQUENT;
+                message = "I'm really enjoying my XBowling experience! Have you downloaded your XBowling App yet? I'm ready to bowl against you! http://bit.ly/xbowlme";
+            }
+
+            twitterWeb.init(function () {
+                var oauthData = twitterWeb.getOAuthData();
+                if (oauthData == null  || oauthData.accessTokenKey == "" || oauthData.accessTokenSecret == "") {
+                    alert("Could not post your Tweet.  Please try again later.");
+                    twitterWeb.clear();
+                    return;
+                }
+
+                confirm(message, {
+                    title: "Post to Twitter",
+                    callback: function (response) {
+                        if (response === NOTIFICATION_BUTTONS.OK) {
+                            scn.showLoading();
+                            scn.ajax({
+                                url: scn.apiAddress + "userreferral/twitter",
+                                type: "POST",
+                                data: {
+                                    accessTokenKey: oauthData.accessTokenKey,
+                                    accessTokenSecret: oauthData.accessTokenSecret,
+                                    referralMessageType: messageType
+                                },
+                                success: function (data) {
+                                    scn.hideLoading();
+
+                                    localStorage.setItem(HAS_POSTED_TO_TWITTER_KEY, "true");
+                                    scn.popup.hide(elm);
+                                    scn.views.footer.increasePoints(data.userPointTransaction.points);
+                                },
+                                error: function (jqXhr, txtStatus) {
+                                    scn.hideLoading();
+                                    showTwitterError(jqXhr);
+                                }
+                            });
+                        }
+                    }
+                });
+            },
+            function () {
+                alert("Could not post your Tweet.  Please try again later.");
+            });
+        },
+
+        tellAFriendPopup.load = function () {
+            var elm = jQuery(this);
+            
+            var iscr = new iScroll(elm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false,
+            });
+
+            scn.popup.registerPopupDestructor(elm, function () {
+                if (iscr) {
+                    iscr.destroy();
+                    iscr = null;
+                }
+            });
+        }
+    }(window.scn.views.tellAFriendPopup = window.scn.views.tellAFriendPopup || {}));
+</script>
+<div id="popup">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span>Tell a Friend</span>
+        </div>
+    </div>
+    <div class="form-container">    
+            <form action="#" name="tell-a-friend-scroll" id="tell-a-friend-scroll" data-load="scn.views.tellAFriendPopup.load" style="height: 210px">
+        <ul style="height: 475px">
+            <li>
+                <div class="social-button-container" data-changeview="EmailComposer" data-tap-alloweventbubble="true">
+                    <div class="facebook-button">
+                        <img src="button-tell-a-friend-email.png" />
+                        <p>Email your friends - If your friend signs up using their email address, you get 10 credits!</p>
+                    </div>
+                </div>
+            </li>
+
+            <li>
+                <div class="social-button-container" data-tap="scn.views.tellAFriendPopup.facebook" data-tap-alloweventbubble="true">
+                    <div class="facebook-button">
+                        <img src="button-tell-a-friend-facebook.png" />
+                        <p>Post to Facebook - Get 5 credits per Facebook message, for up to 30 credits per month!</p>
+                    </div>
+                </div>
+            </li>
+
+            <li>
+                <div class="social-button-container" data-tap="scn.views.tellAFriendPopup.tweet" data-tap-alloweventbubble="true">
+                    <div class="facebook-button">
+                        <img src="button-tell-a-friend-twitter.png" />
+                        <p>Send a Tweet - Get 5 credits per each Twitter message, for up to 30 credits per month!</p>
+                        <p></p>
+                    </div>
+                </div>
+            </li>
+        </ul>
+        </form>
+    </div>
+</div>

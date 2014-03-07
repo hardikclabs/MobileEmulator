@@ -1,0 +1,74 @@
+        <div id="header" class="font-interstate">
+            <div class="menu-icon"></div>
+            <div class="back-button partial-rounded blue-tile">Back</div>
+            <div class="logo-small"><img src="../../content/images/logo-xbowling-small.png" /></div>
+            <div class="tab-drop-down"></div>    
+            <!--<ul class="toolbar">
+                    <li class="gift-icon"></li>
+                    <li class="points font-interstate">4595</li>
+                    <li class="star-icon"></li>
+                    <li class="add-icon"></li>
+                    <li class="coin-icon"></li>
+                </ul>-->
+            
+        </div>
+        
+    <div id="content" class="font-interstate">
+            <div class="animated fadeInRight screen-title">Choose Your Center</div>
+        <ul class="centers">
+            <li class="location-container">
+                <h2>Midtown Bowl</h2>
+                <h3>1936 Piedmont Circle NE,<br />Atlanta. Ga</h3>
+            </li>
+            <li class="distance-container">
+                <h2>0.1</h2>
+                <h3>closest</h3>
+            </li>
+            <li class="xbowling-enabled-container">
+                <h2>Xbowling</h2>
+                <h3>Enanbled</h3>
+            </li>
+        </ul>
+        <ul class="centers">
+            <li class="location-container">
+                <h2>Midtown Bowl</h2>
+                <h3>1936 Piedmont Circle NE,<br />Atlanta. Ga</h3>
+            </li>
+            <li class="distance-container">
+                <h2>0.1</h2>
+                <h3>closest</h3>
+            </li>
+            <li class="xbowling-enabled-container">
+                <h2>Xbowling</h2>
+                <h3>Enanbled</h3>
+            </li>
+        </ul>
+        <ul class="centers">
+            <li class="location-container">
+                <h2>Midtown Bowl</h2>
+                <h3>1936 Piedmont Circle NE,<br />Atlanta. Ga</h3>
+            </li>
+            <li class="distance-container">
+                <h2>0.1</h2>
+                <h3>closest</h3>
+            </li>
+            <li class="xbowling-enabled-container">
+                <h2>Xbowling</h2>
+                <h3>Enanbled</h3>
+            </li>
+        </ul>
+                    
+            <div class="animated fadeIn next-btn partial-rounded orange-tile">Next?</div>
+    </div>
+        
+    <div id="footer" class="font-interstate">
+       
+         <ul id="breadcrumbs">
+            <li class="active" ><a href=""><h1>1</h1><h2>Location</h2></a></li>
+            <li><a href=""><h1>2</h1><h2>Lane</h2></a></li>
+            <li><a href=""><h1>3</h1><h2>Setup</h2></a></li>
+        </ul>
+
+    </div>
+    
+

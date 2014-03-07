@@ -1,0 +1,25 @@
+<div id="popup"  data-load="scn.views.userProfile1.load">
+    <div class="popup-header"><div class="centered-container">
+        <span>Select Option</span></div>
+    </div>
+    <div class="form-container">
+        <div class="message-container">
+            <p>You can either continue your game, end that game and start a new game. Please choose an option below.</p>
+        </div>
+        <div class="all-button-container">
+            <div class="button-container">
+                <div class="medium-button green-general-button">
+                    <span class="two-line-text">Continue<br />
+                        game</span>
+                </div>
+            </div>
+            <div class="button-container">
+                <div class="medium-button blue-general-button no-margin">
+                    <span class="two-line-text">Start<br />
+                        New game</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

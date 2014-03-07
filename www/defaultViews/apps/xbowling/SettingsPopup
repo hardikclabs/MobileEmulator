@@ -1,0 +1,119 @@
+<script type="text/javascript">
+    (function (settingsPopup) {
+        settingsPopup.load = function () {
+            var scrollElm = jQuery("#settings-popup-scroll", this);
+            var iscr = new iScroll(scrollElm.get(0), {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: true
+                });
+            scn.popup.registerPopupDestructor(scrollElm, function () {
+                if (iscr) {
+                    iscr.destroy();
+                    iscr = null;
+                }
+            });
+        },
+
+        settingsPopup.privacyPolicyTap = function () {
+            window.open(scn.legal.privacyPolicyUrl, "_blank", "location=no");
+        },
+
+        settingsPopup.termsOfServiceTap = function () {
+            window.open(scn.legal.termsOfServiceUrl, "_blank", "location=no");
+        },
+
+        settingsPopup.copyrightPolicyTap = function () {
+            window.open(scn.legal.copyrightPolicyUrl, "_blank", "location=no");
+        },
+
+        settingsPopup.signOutTap = function () {
+            var that = this;
+            confirm("Are you sure you want to sign out?", {
+                title: "Sign Out",
+                callback: function (r) {
+                    if (r === NOTIFICATION_BUTTONS.OK) {
+                        scn.clearSession();
+                        scn.popup.hide(that);
+
+                        // go to main dashboard if signed out
+                        if (scn.viewEngine.getViewIdFromHash().viewId != "new-0-SignIn") {
+                            scn.viewEngine.changeView("new-0-SignIn");
+                        }
+                    }
+                }
+            });
+        },
+
+        settingsPopup.feedbackTap = function () {
+            var fbWindow = window.open(scn.mobileAddress + "feedback/new", "_blank", "location=no,closebuttoncaption=Cancel");
+            scn.injectWindowLoadingMessage(fbWindow, "Please wait while we load the feedback form", "Loading...");
+            fbWindow.addEventListener("loadstart", function (e) {
+                if (e.url.indexOf("#close") > -1) {
+                    fbWindow.close();
+                }
+            }, false);
+        },
+
+        settingsPopup.supportTap = function () {
+            var sWindow = window.open(scn.mobileAddress + "support/new", "_blank", "location=no,closebuttoncaption=Cancel");
+            scn.injectWindowLoadingMessage(sWindow, "Please wait while we load the support form", "Loading...");
+            sWindow.addEventListener("loadstart", function (e) {
+                if (e.url.indexOf("#close") > -1) {
+                    sWindow.close();
+                }
+            }, false);
+        },
+
+        settingsPopup.myProfileTap = function () {
+            scn.popup.show("UserProfile", {
+                height: 260
+            });
+        }
+    }(window.scn.views.settingsPopup = window.scn.views.settingsPopup || {}));
+</script>
+<div id="popup" data-load="scn.views.settingsPopup.load">
+    <div id="popup-bg"></div>
+    <div class="popup-header"><div class="centered-container">
+        <span>Settings</span></div>
+    </div>
+    <div id="settings-popup-scroll" class="popup-content" style="height: 210px">
+        <div style="padding-bottom: 30px;">
+            <ul class="list-view">
+                <li>
+                    <a data-tap="scn.views.settingsPopup.myProfileTap" data-tap-alloweventbubble="true">My Profile</a>
+                </li>
+                <li>
+                    <a data-popup="ChangePassword" data-tap-alloweventbubble="true">Change Password</a>
+                </li>
+                <li>
+                    <a data-tap="scn.views.settingsPopup.signOutTap" data-tap-alloweventbubble="true">Sign Out</a>
+                </li>
+            </ul>
+            <br />
+            <ul class="list-view">
+                <li>
+                    <a data-tap="scn.views.settingsPopup.feedbackTap" data-tap-alloweventbubble="true">Feedback</a>
+                </li>
+                <li>
+                    <a data-tap="scn.views.settingsPopup.supportTap" data-tap-alloweventbubble="true">Support</a>
+                </li>
+                <li>
+                    <a data-popup="AboutUsPopup" data-tap-alloweventbubble="true">About</a>
+                </li>
+                <li>
+                    <a data-tap="scn.views.settingsPopup.termsOfServiceTap" data-tap-alloweventbubble="true">Terms of Use</a>
+                </li>
+                <li>
+                    <a data-tap="scn.views.settingsPopup.privacyPolicyTap" data-tap-alloweventbubble="true">Privacy Policy</a>
+                </li>
+                <li>
+                    <a data-tap="scn.views.settingsPopup.copyrightPolicyTap" data-tap-alloweventbubble="true">Copyright Policy</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>

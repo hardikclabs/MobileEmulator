@@ -1,0 +1,207 @@
+<script type="text/javascript">
+    (function (header) {
+        header.walletOriginalPosition = 0,
+        header.walletOffset = 0,
+
+        header.load = function () {
+            var elm = jQuery(this);
+
+            var templateWrapper = elm.parent("[data-template='Header']");
+
+            if (templateWrapper.attr("data-header-ballcounter") === "true") {
+                jQuery("#ball-counter", templateWrapper).removeClass("hidden");
+
+                // TODO wire up logic to load ball counter
+            }
+
+            if (templateWrapper.attr("data-hideback") === "true") {
+                jQuery("#back-button", templateWrapper).addClass("hidden");
+            }
+
+            header.walletOffset = parseInt(templateWrapper.attr("data-header-walletoffset"));
+            if (!header.walletOffset) {
+                header.walletOffset = 0;
+            }
+        },
+
+        header.loadWallet = function () {
+            var elm = jQuery(this);
+
+            if (!scn.hasSession()) {
+                elm.addClass("hidden");
+                return;
+            }
+            
+            var pointsElm = jQuery("#header-points", elm);
+            var creditsElm = jQuery("#header-credits", elm);
+
+            if (scn.walletData) {
+                pointsElm.text(scn.addCommas(scn.walletData.points));
+                creditsElm.text(scn.addCommas(scn.walletData.credits));
+            } else {
+                scn.walletData = {};
+            }
+
+            scn.ajax({
+                url: scn.apiAddress + "userprofile/wallet",
+                type: "GET",
+                dataType: "json",
+                success: function (data) {
+                    scn.walletData = data;
+                    pointsElm.text(scn.addCommas(scn.walletData.points));
+                    creditsElm.text(scn.addCommas(scn.walletData.credits));
+                },
+                error: function (jqXhr) {
+                    console.log("wallet request failed with error " + jqXhr.status);
+                }
+            });
+
+            /*
+            var left = ((scn.viewEngine.windowWidth - elm.width()) / 2) + header.walletOffset;
+            elm.css("left", left);
+
+            header.walletOriginalPosition = elm.position();
+
+            elm.draggable({
+                handle: jQuery("#wallet-handle", elm),
+                axis: "y",
+                containment: [0, -55, 0, 0],
+                start: header.walletDragStart,
+                stop: header.walletDragStop
+            });
+            */
+            scn.viewEngine.wireTap(
+                jQuery("#buy-credit-button", elm),
+                function () {
+                    var viewData = scn.viewEngine.getViewIdFromHash();
+
+                    var viewParamString = scn.viewEngine.getViewIdStringFromHash();
+                    if (viewParamString.length > 0) {
+                        viewParamString = "?" + viewParamString;
+                    }
+
+                    scn.viewEngine.changeView("BuyMoreCredits?return=" + viewData.viewId + viewParamString);
+                }
+            );
+        },
+
+        header.walletDragStart = function (event, ui) {
+            // jQuery("#curtain").removeClass("hidden");
+            jQuery("#header > #back-button").css("z-index", "1");
+            jQuery("#header > #slide-menu-handle").css("z-index", "1");
+        },
+
+        header.walletDragStop = function (event, ui) {
+            if (ui.position.top == header.walletOriginalPosition.top) {
+               // jQuery("#curtain").addClass("hidden");
+                jQuery("#header > #back-button").css("z-index", "999");
+                jQuery("#header > #slide-menu-handle").css("z-index", "999");
+            }
+        },
+
+        header.increaseCredits = function (increase, callback) {
+            if (!increase) {
+                return;
+            }
+
+            jQuery("#wallet").addClass("drop-wallet");
+
+            setTimeout(function () {
+                //scn.sound.register("falling-coins");
+                //scn.sound.play("falling-coins");
+
+                _increaseWalletElm("#header-credits", increase, 0, function () {
+                    if (callback)
+                        callback();
+
+                    /*setTimeout(function () {
+                        jQuery("#wallet")
+                            .removeClass("drop-wallet")
+                            .addClass("retract-wallet");
+                    }, 250);*/
+                });
+            }, 1000);
+        },
+
+         header.increasePoints = function (increase, callback) {
+             if (!increase) {
+                 return;
+             }
+
+             jQuery("#wallet").addClass("drop-wallet");
+
+             setTimeout(function () {
+                 //scn.sound.register("falling-coins");
+                 //scn.sound.play("falling-coins");
+
+                 _increaseWalletElm("#header-points", increase, 0, function () {
+                     if (callback)
+                         callback();
+
+                     /*setTimeout(function () {
+                         jQuery("#wallet")
+                             .removeClass("drop-wallet")
+                             .addClass("retract-wallet");
+                     }, 250);*/
+                 });
+             }, 1000);
+         },
+
+        _increaseWalletElm = function (id, increase, done, callback) {
+            if (increase != 0) {
+                var stepChange = (increase > 0) ? 1 : -1;
+
+                var headerCredits = jQuery(id);
+                var currentNumber = parseInt(headerCredits.text().replace(",", ""));
+                headerCredits.text(scn.addCommas(currentNumber + stepChange));
+
+                var timeout = done > 100 ? 5 : (done > 10 ? 25 : 120);
+                console.log(timeout);
+                setTimeout(_increaseWalletElm, timeout, id, increase - stepChange, done + 1, callback);
+            } else {
+                if (callback) {
+                    callback();
+                }
+            }
+        }
+    }(window.scn.views.header = window.scn.views.header || {}));
+</script>
+<div id="header" class="font-interstate" data-load="scn.views.header.load">
+    <div class="menu-icon" id="slide-menu-handle"></div>
+    <div class="back-button partial-rounded blue-tile" id="back-button" data-tap="scn.viewEngine.back">Back</div>
+    <div class="partial-rounded grey-tile ball-count font-interstate hidden" id="ball-counter">BALLS ROLLED<br /> <span class="font-dark">123,456,789</span></div>
+    <div class="inline-wallet" data-load="scn.views.header.loadWallet">
+        <div class="inline-wallet-section">
+            <div class="inline-wallet-section-icon star-icon"></div>
+            <div class="section-numeric" id="header-points"></div>
+        </div>
+        <div class="inline-wallet-section" id="buy-credit-button">
+            <div class="inline-wallet-section-icon coin-icon"></div>
+            <div class="section-numeric" id="header-credits"></div>
+        </div>
+    </div>
+    <div class="logo-small" data-changeview="Landing"><img src="logo-xbowling-small.png" /></div>
+    
+    <!--div id="wallet" class="wallet-container font-interstate" data-load="scn.views.header.loadWallet">
+        <div class="info-container bg">
+            <div class="info-wrapper">
+                <div class="section-container inset-box">
+                    <div class="section-button red-button">Get Prizes</div>
+                    <div class="section-numeric" id="header-points"></div>
+                    <div class="section-numeric-desc">Points</div>
+                </div>
+                <div class="section-container inset-box">
+                    <div class="section-numeric" id="header-credits"></div>
+                    <div class="section-numeric-desc">Credits</div>
+                    <div class="section-button green-button" id="buy-credit-button">Buy Credit</div>
+                </div>
+            </div>
+        </div>
+        <div id="wallet-handle" class="pull-down-tab-container">
+            <div class="pull-down-tab-wrapper">
+                <div class="pull-down-tab"></div>
+            </div>
+        </div>
+    </div-->
+            
+</div>    

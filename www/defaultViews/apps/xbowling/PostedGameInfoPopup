@@ -1,0 +1,99 @@
+<script type="text/javascript">
+    (function (postedGameInfoPopup) {
+        postedGameInfoPopup.load = function () {
+            var elm = jQuery(this);
+
+            var scrollElm = jQuery("#challenge-popup-all", this);
+            scrollElm.height(scn.popup.getHeight(elm));
+
+            var viewModel = scn.popup.getViewModel(elm);
+            ko.applyBindings(viewModel, elm.get(0));
+
+            var mainScroll = new iScroll(scrollElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+
+            scn.popup.registerPopupDestructor(elm, function () {
+                if (mainScroll) {
+                    mainScroll.destroy();
+                    mainScroll = null;
+                }
+            });
+        }
+    }(window.scn.views.postedGameInfoPopup = window.scn.views.postedGameInfoPopup || {}));
+</script>
+<div id="popup" data-load="scn.views.postedGameInfoPopup.load" style="height: 275px">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span>Information</span>
+        </div>
+    </div>
+    <div id="challenge-popup-all">
+        <div class="all-challenge-container" >
+            <div class="single-challenge-container no-border challenge-detail">
+
+                <div class="icon challenge-icon"  style="background-size: contain; background-repeat: no-repeat;">
+                    &nbsp;
+                </div>
+                <!--img src="challenge-beat-your-avg.png" /-->
+
+                <div class="challenge-desc-container challenge-detail">
+                    <h1 class="title"  style="margin: 0;">Challenge Posted Game</h1>
+                    <div class="container">
+                    <div class="cost"><h1 class="light-text challenge-cost-container" style="margin: 0;">Credits: <span >Varies</span> <span class="xcoin"><img src="xcoin.png" width="20" /></span></h1></div>
+                    <div class="rewards"><h2 class="light-text" style="margin: 0 0 0 20px;">Rewards <span  >Varies </span><span ></span><span class="pts"></span></h2></div>
+                    </div>
+                    <p>Choose to play against an unlimited number of games previously played by XBowlers and posted in the App.   Once you choose an opponent, you can follow the results of the game frame by frame to get an experience of playing a live game! Your opponent will be notified that you are bowling against their game and can also follow along in real time.</p>
+                    <br />
+                    <p>The highest handicap score wins and the number of points won is based on the number of credits used to play the game.</p>
+                    <br />
+                    <p>Potential wins based on the following table:</p>
+
+         <table border="0" width="350" style="color:rgba(255,255,255,0.7);text-align:left;">
+<tr>
+<th><u>Cost of Entry</u></th>
+<th><u>Potential Win</u></th>
+</tr>
+             <br />
+<tr>
+<td>(Credits)</td>
+<td>(Points)</td>
+</tr>
+<tr>
+<td>10</td>
+<td>1,000</td>
+</tr>
+<tr>
+</tr>
+<tr>
+<td>25</td>
+<td>3,200</td>
+</tr>
+<tr>
+<td>50</td>
+<td>6,500</td>
+</tr>
+<tr>
+<td>100</td>
+<td>14,000</td>
+</tr>
+<tr>
+<td>500</td>
+<td>75,000</td>
+</tr>
+<tr>
+<td>1,000</td>
+<td>170,000</td>
+</tr>
+</table>        
+<br /><br />
+                     </div>
+            </div>
+        </div>
+    </div>
+</div>

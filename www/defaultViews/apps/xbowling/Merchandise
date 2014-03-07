@@ -1,0 +1,187 @@
+<script type="text/javascript">
+    (function (merchandise) {
+        merchandise.mainScroll = null,
+        merchandise.viewModel = function () {
+            this.products = ko.mapping.fromJS([]);
+            this.categories = ko.mapping.fromJS([]);
+            this.selectedCategory = ko.observable();
+            this.loading = ko.observable(true);
+        },
+        
+        merchandise.load = function () {
+            var elm = jQuery(this);
+            var viewModel = new merchandise.viewModel();
+            ko.applyBindings(viewModel, elm.get(0));
+
+            // load categories
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "redemptionproduct/categories",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    ko.mapping.fromJS(data, viewModel.categories);
+                },
+                error: function (jqXhr) {
+                    alert("An error occurred loading prizes.  Please try again later.");
+                }
+            });
+
+            var subscription = viewModel.selectedCategory.subscribe(function (newValue) {
+                merchandise.populate(newValue);
+            });
+
+            scn.viewEngine.registerViewDestructor(function () {
+                if (subscription) {
+                    subscription.dispose();
+                }
+            });
+
+            // set height for iscroll
+            var list = jQuery("#product-list");
+            var newHeight = scn.viewEngine.windowHeight - list.position().top;
+            list.height(newHeight);
+
+            // wire up iscroll
+            merchandise.mainScroll = new iScroll(
+                list.get(0), {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+            scn.viewEngine.registerViewDestructor(function () {
+                if (merchandise.mainScroll) {
+                    merchandise.mainScroll.destroy();
+                    merchandise.mainScroll = null;
+                }
+            });
+        },
+
+        merchandise.populate = function (category) {
+            scn.showLoading();
+
+            // get product data
+            scn.ajax({
+                url: scn.apiAddress + "redemptionproduct",
+                type: "GET",
+                data: { category: category },
+                success: function (data) {
+                    scn.hideLoading();
+
+                    var elm = jQuery("#merch-screen");
+                    var viewModel = ko.dataFor(elm.get(0));
+                    viewModel.loading(false);
+
+                    ko.mapping.fromJS(data, viewModel.products);
+
+                    var firstLi = jQuery("#product-list > ul > li");
+                    jQuery("#product-list > ul").height((firstLi.outerHeight() + 11) * data.length);
+                    jQuery("#product-list").width(firstLi.outerWidth());
+                    merchandise.mainScroll.refresh();
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+
+                    alert("An error occurred loading prizes.  Please try again.");
+                }
+            });
+        },
+
+        merchandise.categoryChanged = function () {
+            merchandise.populate();
+        },
+
+        merchandise.purchase = function () {
+            var product = ko.dataFor(this.element);
+
+            scn.viewEngine.changeView("RedemptionAddress?product=" + product.id() + "&costPoints=" + product.costPoints());
+        }
+    }(window.scn.views.merchandise = window.scn.views.merchandise || {}));
+</script>
+
+
+
+<div id="content" data-load="scn.views.merchandise.load">
+    <div class="popup-header">
+            <div class="centered-container">
+                <span>Select Prize</span>
+            </div>
+        </div>
+    <div id="merch-screen">
+        <div class="merch-categories-container">
+       <form>
+       <fieldset>
+           <!--<legend>Category</legend>-->
+             <select id="prizeCategory" data-bind="options: categories, value: selectedCategory">
+             </select>
+       </fieldset>
+    </form>
+            <!-----<TABS ARE HIDDEN>--------<div class="tabs">
+                <ul>
+                    <li class="partial-rounded dark-blue-tile-2"><a name="tab" id="tab_1" href="javascript:void(0)" onclick="tabs(1)" class="active ">Sports</a></li>
+                    <li class="partial-rounded dark-blue-tile-2"><a name="tab" id="tab_2" href="javascript:void(0)" onclick="tabs(2)">Electronics</a></li>
+                    <li class="partial-rounded dark-blue-tile-2"><a name="tab" id="tab_3" href="javascript:void(0)" onclick="tabs(3)">Kids</a></li>
+                </ul>
+            </div>-->
+
+            <div class="pane">
+                <div name="tab_content" id="tab_content_1" class="tab_content active">
+                    <!-----SEARCH SECTION-------------------------------------------->
+                    <!--div class="search-section">
+                        <ul>
+                            <li>
+                                <form>
+                                    <input type="text" name="query" placeholder="Search Prizes">
+                                </form>
+                            </li>
+                            <li class="sort-button">
+                                <button class="next-btn partial-rounded dark-blue-tile font-interstate button" type="submit">Sort</button>
+                            </li>
+                        </ul>
+                    </div-->
+
+                    <!-----LIST OF CHALLENGERS------------------------------------->
+                    <div data-bind="visible: loading">Loading prizes.  Please wait...</div>
+                    <div data-bind="visible: products().length == 0" id="no-prizes-message">There are no prizes available in that category.</div>
+                    <div class="bowlers-list" id="product-list">
+                        <ul data-bind="foreach: products" >
+                            <li class="prize-info">
+                                <ul>
+                                    <!-----SECTION 1: Prize Photo------->
+                                    <li class="prize-pic-container">
+                                        <div class="prize-pic"><img data-bind="attr: { src: thumbnailUrl, alt: name }"/></div>
+                                    </li>
+
+                                    <!-----SECTION 2: Purchase Information-------------------->
+                                    <li class="purchase-container">
+                                        <div class="prize-title" data-bind="text: name"></div>
+                                            <div class="points-container">
+                                                    <div class="section-container inset-box">
+                                                        <div class="section-numeric" data-bind="text: scn.addCommas(costPoints())"></div>
+                                                        <div class="section-numeric-desc">points</div>
+                                                        <div class="section-button green-challenge-button" data-bind="tap: scn.views.merchandise.purchase, visible: costPoints() <= scn.walletData.points">Purchase</div>
+                                                    </div>
+                                            </div>
+                                    </li>
+
+                                    <!-----BOX 4: Time Limit informaiton----------------------->
+                                    <li class="prize-availablity">
+                                        <div class="prize-locked" data-bind="visible: costPoints() > scn.walletData.points"><img src="prize-locked.png"></div>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+
+                    
+                </div>
+
+
+            </div>
+
+        </div>
+</div>
+

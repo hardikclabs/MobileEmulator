@@ -1,0 +1,237 @@
+<script type="text/javascript">
+    (function (redemptionMerchandise) {
+        redemptionMerchandise.viewModel = function () {
+            this.products = ko.mapping.fromJS([]);
+            this.selectedCategory = ko.observable();
+            this.loading = ko.observable(true);
+            this.availablePoints = ko.observable();
+            this.selectedCategoryDisplay = ko.computed(function () {
+                if (this.selectedCategory() == "all") {
+                    return "All Prizes";
+                } else {
+                    return this.selectedCategory();
+                }
+            }, this);
+        },
+
+        redemptionMerchandise.load = function () {
+            var elm = jQuery(this);
+
+            var viewModel = new redemptionMerchandise.viewModel();
+            
+            if (scn.walletData) {
+                viewModel.availablePoints(scn.walletData.availableRewardPoints);
+            }
+
+            ko.applyBindings(viewModel, elm.get(0));
+
+            // load wallet info
+            scn.ajax({
+                url: scn.apiAddress + "userprofile/wallet",
+                type: "GET",
+                dataType: "json",
+                success: function (data) {
+                    scn.walletData = data;
+                    viewModel.availablePoints(data.availableRewardPoints);
+                },
+                error: function (jqXhr) {
+                    console.log("wallet request failed with error " + jqXhr.status);
+
+                    if (jqXhr.status == 401) {
+                        scn.clearSession();
+                        scn.viewEngine.changeView(scn.viewEngine.NOT_LOGGED_IN_VIEW);
+                    }
+                }
+            });
+
+            var subscription = viewModel.selectedCategory.subscribe(function (newValue) {
+                redemptionMerchandise.populate(newValue, elm);
+            });
+
+            scn.viewEngine.registerViewDestructor(function () {
+                if (subscription) {
+                    subscription.dispose();
+                }
+            });
+
+            var viewParams = scn.viewEngine.getViewIdFromHash();
+            viewModel.selectedCategory(viewParams.params.category);
+
+
+            // set height for iscroll
+            var list = jQuery("#prize-list", elm);
+            var content = list.parents("#prize-list-content:first");
+            list.height(content.height());
+
+            // wire up iscroll
+            var listDom = list.get(0);
+            var mainScroll = new iScroll(listDom, {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+            scn.viewEngine.registerViewDestructor(function () {
+                if (listDom.iScroll) {
+                    listDom.iScroll.destroy();
+                    listDom.iScroll = null;
+                }
+            });
+        },
+
+        redemptionMerchandise.populate = function (category, elm) {
+            scn.showLoading();
+
+            var data = {};
+            if (category && category != "all") {
+                data.category = category;
+            }
+
+            // get product data
+            scn.ajax({
+                url: scn.apiAddress + "redemptionproduct",
+                type: "GET",
+                data: data,
+                success: function (data) {
+                    scn.hideLoading();
+
+                    var viewModel = ko.dataFor(elm.get(0));
+                    viewModel.loading(false);
+
+                    ko.mapping.fromJS(data, viewModel.products);
+
+                    var prizeList = jQuery("#prize-list", elm);
+                    var prizeListUl = prizeList.children("ul:first");
+                    var firstLi = prizeListUl.children("li:first");
+                    prizeListUl.height(((firstLi.outerHeight() + 2) * data.length) + 25);
+                    prizeList.get(0).iScroll.refresh();
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+
+                    alert("An error occurred loading prizes.  Please try again.");
+                }
+            });
+        },
+
+        redemptionMerchandise.toggleConfirm = function () {
+            var elm = jQuery(this.element);
+            jQuery("button", elm.parent()).toggle();
+        },
+
+        redemptionMerchandise.purchase = function () {
+            var viewModel = ko.dataFor(jQuery(this.element).parents("#prize-list").get(0));
+            var product = ko.dataFor(this.element);
+
+            // check legal to make sure we can redeem this amount of points
+            if (!scn.legal.checkRedemption(product.costPoints())) {
+                return;
+            }
+
+            if (product.costPoints() <= viewModel.availablePoints()) {
+                if (product.redemptionProductSizeGroup && product.redemptionProductSizeGroup.items && product.redemptionProductSizeGroup.items().length > 0) {
+                    scn.popup.show("RedemptionMerchandiseSizeSelectPopup", {
+                        viewModel: {
+                            redemptionProductSizeGroup: ko.mapping.toJS(product.redemptionProductSizeGroup)
+                        },
+                        callback: function (data) {
+                            if (data) {
+                                scn.viewEngine.changeView("RedemptionAddress?product=" + product.id() + "&costPoints=" + product.costPoints() + "&size=" + data.size);
+                            }
+                        }
+                    });
+                } else {
+                    scn.viewEngine.changeView("RedemptionAddress?product=" + product.id() + "&costPoints=" + product.costPoints());
+                }
+            } else {
+                alert("You do not have enough points to purchase this item!", {
+                    title: "Uh oh!"
+                });
+            }
+        },
+
+        redemptionMerchandise.showInfo = function () {
+            var viewModel = ko.dataFor(jQuery(this.element).parents("#prize-list").get(0));
+            var product = ko.dataFor(this.element);
+            scn.viewEngine.changeView("RedemptionMerchandiseInfo", {
+                viewModel: {
+                    availablePoints: viewModel.availablePoints(),
+                    viewOnly: false,
+                    product: product
+                }
+            });
+        },
+
+         redemptionMerchandise.close = function () {
+             var currentReferer = localStorage.getItem("redemptionReferer");
+             scn.viewEngine.changeView(currentReferer,
+                 {
+                     slideDirection: "right"
+                 });
+
+             localStorage.setItem("redemptionReferer", "");
+         },
+
+        redemptionMerchandise.showHistory = function () {
+            var viewModel = ko.dataFor(this);
+            scn.viewEngine.changeView("RedemptionHistory");
+        },
+
+        redemptionMerchandise.back = function () {
+            scn.viewEngine.back();
+        }
+    }(window.scn.views.redemptionMerchandise = window.scn.views.redemptionMerchandise || {}));
+
+
+</script>
+<div id="redemption-wrapper" data-load="scn.views.redemptionMerchandise.load">
+    <div class="header">
+        <div class="header-left"> 
+            <div class="header-button orange-button" data-tap="scn.views.redemptionMerchandise.back"><p>Back</p></div>
+        </div>
+        <div class="header-center">
+           <h1 style="font-size: 26px;" data-bind="text: selectedCategoryDisplay"></h1>
+        </div>
+        <div class="header-right">
+            <img src="home-icon.png" style="width: 49px; float: right; margin: 10px 10px 0 0" data-changeview="new-1-MainDashboard" data-changeview-direction="right" />
+        </div>
+    </div>
+    <div class="content" id="prize-list-content">
+        <div data-bind="visible: loading" class="light-text centered">Loading prizes.  Please wait...</div>
+        <div data-bind="visible: !loading() && products().length == 0, showOnBind: true" class="hidden light-text centered">There are no prizes available in that category.</div>
+        <div id="prize-list" class="hidden" data-bind="showOnBind: true">
+        <ul class="prize-list" data-bind="foreach: products">
+            <li data-bind="tap: scn.views.redemptionMerchandise.showInfo" data-tap-alloweventbubble="true">
+                <ul class="inner-list-items">
+                    <li class="prize-photo"><img data-bind="attr: { src: thumbnailUrl, alt: name }"/></li>
+                    <li class="prize-title"><p data-bind="text: name"></p></li>
+                    <li class="info-button">i</li>
+                    <li class="buy-button">
+                        <button class="clean-gray" data-bind="tap: scn.views.redemptionMerchandise.toggleConfirm">
+                            <span class="prize-cost" data-bind="text: scn.addCommas(costPoints())"></span>
+                            <span class="currency-type">SCN&trade;<br />REWARDS</span>
+                        </button>
+
+                        <button class="green-buy-button" style="display:none" data-bind="tap: scn.views.redemptionMerchandise.purchase">
+                            <span class="call-to-action">buy it now!</span>
+                        </button>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+        </div>
+    </div>
+    <div class="footer">
+        <div class="powered-by-container">
+            <div class="powered-by-text">powered<br />by</div>
+            <div class="scn-logo"><img src="logo-scn.png" /></div>
+        </div>
+        <div class="footer-button orange-button" data-tap="scn.views.redemptionMerchandise.showHistory"><p>Your History</p></div>
+        <div class="scn-point-container">
+            <div class="scn-points" data-bind="text: scn.addCommas(availablePoints())"></div>
+            <div class="currency-type">SCN&trade;<br />REWARDS</div>
+        </div>
+    </div>
+</div>

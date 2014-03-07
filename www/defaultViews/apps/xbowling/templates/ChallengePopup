@@ -1,0 +1,42 @@
+<script type="text/javascript">
+    (function (challengePopup) {
+        challengePopup.templateWrapper = null,
+        challengePopup.entered = [],
+
+        challengePopup.display = function (challenge) {
+            var popup = jQuery("#popup-container", challengePopup.templateWrapper);
+            ko.applyBindings(challenge, popup.get(0));
+            popup.removeClass("hidden");
+        },
+
+        challengePopup.hide = function () {
+            jQuery(this).parents("#popup-container", challengePopup.templateWrapper)
+                .addClass("hidden");
+        },
+
+        challengePopup.enterChallenge = function () {
+            var challenge = ko.dataFor(this);
+            challengePopup.entered.push(challenge);
+            jQuery(this).parents("#popup-container", challengePopup.templateWrapper)
+                .addClass("hidden");
+        }
+    }(window.scn.views.challengePopup = window.scn.views.challengePopup || {}));
+
+</script>
+<div id="popup-container" class="animated bounceIn hidden">
+        <div class="popup-header">
+
+            <div class="close-popup blue-tile popup-margin-top">
+                <div class="close-icon" data-tap="window.scn.views.challengePopup.hide">
+                    <img src="close.png" />
+                </div>
+                <div class="popup-challenge-icon"><img src="challenge-spare-some-time.png" /></div>
+                <div class="popup-challenge-info">
+                    <h1>Rewards <span id="challenge-points" data-bind="{ text: maxPoints }"></span> PTS</h1>
+                    <p id="challenge-descriptions" data-bind="{ text: description }"></p>
+                </div>
+
+                <div class="fadeIn done-btn partial-rounded orange-tile button popup-button popup-return-button" data-tap="scn.views.challengePopup.enterChallenge">Enter Challenge</div>
+            </div>
+    </div>
+</div>

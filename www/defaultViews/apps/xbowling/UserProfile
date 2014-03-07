@@ -1,0 +1,185 @@
+<script type="text/javascript">
+    (function (userProfile1) {
+        userProfile1.load = function () {
+            var elm = jQuery(this);
+
+            jQuery("#user-profile-form", elm)
+                .bind("submit", userProfile1.submit);
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "userprofile",
+                type: "GET",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    if (data) {
+                        scn.hideLoading();
+
+                        jQuery("#screen-name", elm).val(data.screenName);
+                        jQuery("#email", elm).val(data.email);
+
+                        if (data.pictureFile && data.pictureFile.id > 0) {
+                            jQuery("#profile-picture")
+                                .attr("src", data.pictureFile.fileUrl + "_thumbnail");
+                        }
+
+                        if (scn.screenName) {
+                            scn.screenName(data.screenName);
+                        }
+                    }
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+                    alert("An error occurred while loading your profile.  Please try again.");
+                }
+            });
+          
+        },
+
+        userProfile1.submit = function (event) {
+
+            var form = jQuery(this).parents('#user-profile-form:first');
+
+            var screenName = jQuery("#screen-name", form);
+            var email = jQuery("#email", form);
+            var profilePicture = jQuery("#profile-picture", form);
+
+            var messages = [];
+            if (screenName.val() == "") {
+                messages.push("Please enter a Screen Name");
+            }
+
+            if (email.val() == "") {
+                messages.push("Please enter a valid Email Address");
+            }
+
+            if (messages.length > 0) {
+                var stringMessage = "";
+                for (var i = 0; i < messages.length; i++) {
+                    if (i > 0) {
+                        stringMessage += "\n";
+                    }
+
+                    stringMessage += messages[i];
+                }
+
+                alert(stringMessage);
+                return;
+            }
+
+            scn.showLoading();
+
+            var profileData = {
+                screenName: screenName.val(),
+                email: email.val(),
+            };
+
+            if (profilePicture.attr("data-dirty") == "true") {
+                var content = profilePicture.attr("src");
+                content = content.replace("data:image/png;base64,", "");
+
+                profileData.base64Picture = {
+                    content: content
+                };
+            }
+
+            scn.ajax({
+                url: scn.apiAddress + "userprofile",
+                type: "POST",
+                data: profileData,
+                success: function () {
+                    scn.hideLoading();
+
+                    profilePicture.attr("data-dirty", false);
+
+                    if (scn.screenName) {
+                        scn.screenName(profileData.screenName);
+                    }
+
+                    // hide the popup
+                    scn.popup.hide(form);
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+
+                    if (jqXhr.status == 409) {
+                        if (jqXhr.responseJSON.message == "ScreenName") {
+                            alert("A user with that screen name already exists.  Please select another screen name and try again.");
+                        } else if (jqXhr.responseJSON.message == "Email") {
+                            alert("A user with that email already exists.  Please select another email and try again.");
+                        } else {
+                            alert("An error occurred while updating your profile.  Please try again.");
+                        }
+                    } else {
+                        alert("An error occurred while updating your profile.  Please try again.");
+                    }
+                }
+            });
+        },
+
+        userProfile1.changePassword = function () {
+            jQuery(this).blur();
+            scn.popup.show("ChangePassword");
+        },
+
+        userProfile1.changePicture = function () {
+            if (!navigator.camera) {
+                alert("Your device does not support uploading pictures!", { title: "Uh oh!" });
+                return;
+            }
+
+            navigator.camera.getPicture(
+                function (data) {
+                    var profilePicture = jQuery("#profile-picture")
+                        .attr("data-dirty", true)
+                        .attr("src", "data:image/png;base64," + data);
+                }, 
+                function (message) {
+                },
+                {
+                    quality: 75,
+                    destinationType: navigator.camera.DestinationType.DATA_URL,
+                    sourceType: navigator.camera.PictureSourceType.PHOTOLIBRARY,
+                    targetWidth: 150,
+                    saveToPhotoAlbum: false
+                });
+
+        }
+    }(window.scn.views.userProfile1 = window.scn.views.userProfile1 || {}));
+</script>
+
+<div id="popup"  data-load="scn.views.userProfile1.load">
+    <div class="popup-header"><div class="centered-container">
+        <span>My Profile</span></div>
+    </div>
+    <div id="user-profile-scroll" class="wide-form-container">
+        <div id="user-profile-form" class="user-profile-form">
+            <ul class="form-container" style="margin-top: 0;">
+                <li>
+                    <div style="margin: auto; width: 50px; border: 2px solid #3F658C; border-radius: 2px; padding: 5px;">
+                        <img id="profile-picture" src="logo-xbowling-small.png" data-tap="scn.views.userProfile1.changePicture" style="width: 100%" />
+                        <span class="icon-pencil"></span>
+                    </div>
+                </li>
+                <li>
+                    <div class="field-title">Screen Name</div>
+                    <input class="screen-name" type="text" id="screen-name" placeholder="Screen Name" data-tap-alloweventbubble="true" required />
+                </li>
+                <li>
+                    <div class="field-title">Email Address</div>
+                    <input class="screen-name" type="email" id="email" placeholder="Email" data-tap-alloweventbubble="true" required />
+                </li>
+                <li class="login-buttons">
+                    <div class="button-container float-right">
+                        <div class="medium-button orange-general-button no-margin" data-tap="scn.views.userProfile1.submit">
+                            <span>Done</span>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+</div>

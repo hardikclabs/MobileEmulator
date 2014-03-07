@@ -1,0 +1,123 @@
+<script type="text/javascript">
+    (function (signUpReset) {
+        signUpReset.load = function () {
+            var form = jQuery(this);
+            form.bind("submit", signUpReset.submit);
+        },
+
+        signUpReset.submit = function (event) {
+            cancelEvent(event);
+
+            var form = jQuery(this);
+
+            var emailField = jQuery("#email", form);
+            var email = emailField.val();
+
+            if (email == "") {
+                alert("Please enter a valid email address.", {
+                    callback: function () {
+                        emailField.addClass("error");
+                    }
+                });
+                return false;
+            } else {
+                emailField.removeClass("error");
+            }
+
+            scn.showLoading();
+
+            scn.ajax({
+                type: "POST",
+                url: scn.apiAddress + "user/passwordreset",
+                data: { email: email },
+                success: function (data) {
+                    scn.hideLoading();
+
+                    jQuery("#signup-reset").addClass("hidden");
+                    jQuery("#success-container")
+                        .removeClass("hidden")
+                        .addClass("animated fadeIn");
+                },
+                error: function () {
+                    scn.hideLoading();
+
+                    alert("An error occurred");
+                }
+            });
+        },
+
+        signUpReset.okTap = function () {
+            scn.popup.hide(this);
+        },
+
+        signUpReset.backToLoginTap = function () {
+            scn.popup.hide(this);
+            scn.popup.show("Login", {
+                callback: function (data) {
+                    if (data.loginSuccess) {
+                        scn.viewEngine.changeView("new-1-MainDashboard");
+                    }
+                },
+                height: 260
+            });
+        }
+    }(window.scn.views.signUpReset = window.scn.views.signUpReset || {}));
+</script>
+
+
+<div id="popup">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span>Reset Password</span>
+        </div>
+    </div>
+
+    <div id="signup-reset" class="form-container">
+        <form class="signup-form partial-rounded light-grey-tile" data-load="scn.views.signUpReset.load" name="reset-form" id="reset-form">
+            <ul>
+
+                <li>
+                    <input class="signup no-uppercase" type="email" id="email" placeholder="EMAIL" />
+                </li>
+                <li class="login-buttons">
+                    <div class="button-container remove">
+                        <div class="medium-button blue-general-button " data-changeview="SignUp1">
+                            <span>Login</span>
+                        </div>
+                    </div>
+                    <div class="button-container" data-tap="scn.views.signUpReset.backToLoginTap">
+                        <div class="medium-button blue-general-button ">
+                            <span class="two-line-text">Back<br />
+                                To Login</span>
+                        </div>
+                    </div>
+                    <div class="button-container">
+                        <button type="submit" class="medium-button orange-general-button no-margin">
+                            <span>Done</span>
+                        </button>
+                    </div>
+                </li>
+            </ul>
+        </form>
+
+        <div class="form-message partial-rounded teal-tile" id="reset-instructions">
+            <p>Please enter the e-mail that you used to register for Xbowling and then check your email.</p>
+        </div>
+    </div>
+
+    <div class="signup-container hidden hundred-percent-width" id="success-container">
+        <div class="form-message partial-rounded dark-green-tile">
+            <div>
+                <h1>You're almost done!</h1>
+                <div class="light-text">Instructions about how to finish changing your password have been emailed to you.</div>
+            </div>
+            <div class="button-container" style="float: right; margin: 5px 5px 0 0;">
+                <button data-tap="scn.views.signUpReset.okTap" class="medium-button orange-general-button no-margin">
+                    <span>OK</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+

@@ -1,0 +1,439 @@
+<script type="text/javascript">
+    (function (emailComposer) {
+        emailComposer.mode = {
+            COMPOSER: 0,
+            CONTACTS: 1
+        }
+
+        emailComposer.viewModel = function () {
+            this.mode = ko.observable(emailComposer.mode.COMPOSER);
+            this.contactsSupported = ko.observable(false);
+            this.groups = ko.observableArray([]);
+            this.selectedContacts = ko.observableArray([]);
+            this.highlightedContact = ko.observable();
+            this.sending = ko.observable(false);
+        },
+
+        addSelectedContact = function (box, viewModel) {
+            var text = box.val().trim();
+            if (text != "") {
+                viewModel.selectedContacts.push({
+                    name: ko.observable(text),
+                    email: ko.observable(text)
+                });
+
+                box.val("");
+                box.width(25);
+            }
+        },
+
+        emailComposer.load = function () {
+            var elm = jQuery(this);
+            elm.width(scn.viewEngine.windowWidth);
+            elm.height(scn.viewEngine.windowHeight);
+
+            var viewModel = new emailComposer.viewModel();
+
+            var typingEmail = jQuery("#typing-email", elm);
+            typingEmail.keydown(function (e) {
+                var box = jQuery(this);
+
+                if (e.keyCode == 13) {
+                    // enter
+                    addSelectedContact(box, viewModel);
+                    box.focus();
+                } else if (e.keyCode == 8) {
+                    // backspace
+                    var list = viewModel.selectedContacts();
+                    if (list.length > 0) {
+                        if (viewModel.highlightedContact() == null) {
+                            viewModel.highlightedContact(list[list.length - 1]);
+                        } else {
+                            viewModel.selectedContacts.remove(list[list.length - 1]);
+                            viewModel.highlightedContact(null);
+                        }
+                    }
+                } else {
+                    var length = box.val().length;
+                    box.width(25 + (length * 11));
+                }
+            });
+
+            typingEmail.blur(function (e) {
+                var box = jQuery(this);
+                addSelectedContact(box, viewModel);
+            });
+
+            if (navigator.contacts) {
+                var options = new ContactFindOptions();
+                options.filter = "";
+                options.multiple = true;
+                var filter = ["name", "givenName", "familyName", "emails"];
+                navigator.contacts.find(filter, 
+                    function (data) {
+                        viewModel.contactsSupported(true);
+
+                        var groups = viewModel.groups();
+
+                        for (var i = 0; i < data.length; i++) {
+                            var contact = data[i];
+                            if (contact.emails == null || contact.emails.length == 0)
+                                continue;
+
+                            for (var e = 0; e < contact.emails.length; e++) {
+                                var email = contact.emails[e];
+                                if (email == null)
+                                    continue;
+
+                                email = email.value;
+                                if (email == null || email == "")
+                                    continue;
+
+                                var groupLetter = contact.name.familyName
+                                        ? contact.name.familyName[0].toUpperCase()
+                                        : (contact.name.givenName ? contact.name.givenName[0].toUpperCase()
+                                            : email[0].toUpperCase());
+
+                                var group = null;
+                                for (var g = 0; g < groups.length; g++) {
+                                    if (groups[g].letter() == groupLetter) {
+                                        group = groups[g];
+                                        break;
+                                    }
+                                }
+
+                                if (group == null) {
+                                    group = {
+                                        letter: ko.observable(groupLetter),
+                                        contacts: ko.observableArray()
+                                    };
+                                    groups.push(group);
+                                }
+
+                                var displayName = contact.name.givenName ? contact.name.givenName : "";
+                                if (displayName.length > 0)
+                                    displayName += " ";
+                                displayName += contact.name.familyName ? contact.name.familyName : "";
+
+                                group.contacts.push({
+                                    name: ko.observable(displayName),
+                                    email: ko.observable(email)
+                                });
+                            }
+                        }
+
+                        groups.sort(function (left, right) {
+                            return (left.letter() == right.letter() ? 0 : (left.letter() < right.letter() ? -1 : 1));
+                        });
+                        viewModel.groups(groups);
+
+                        var scrollElm = jQuery("#email-composer-contact-scroll", elm);
+                        scrollElm.height(scn.viewEngine.windowHeight - 25);
+                        var scroller = scrollElm.children(":first");
+                        scroller.height((28 * groups.length) + (34 * data.length));
+                        var iscroll = new iScroll(scrollElm.get(0), {
+                            snap: false,
+                            momentum: true,
+                            hScroll: false,
+                            hScrollbar: false,
+                            vScroll: true,
+                            vScrollbar: true,
+                        });
+                        iscroll.refresh();
+
+                        scn.viewEngine.registerViewDestructor(function () {
+                            var scrollElm = jQuery("#email-composer-contact-scroll");
+                            if (scrollElm) {
+                                if (scrollElm.get(0).iScroll) {
+                                    scrollElm.get(0).iScroll.destroy();
+                                    scrollElm.get(0).iScroll = null;
+                                }
+                            }
+                        });
+                    },
+                    function () {
+                        viewModel.contactsSupported(false);
+                    },
+                    options);
+            }
+
+
+            ko.applyBindings(viewModel, elm.get(0));
+        },
+
+        emailComposer.toTap = function () {
+            jQuery("#typing-email").focus();
+        },
+
+        emailComposer.showContacts = function () {
+            var viewModel = ko.dataFor(this);
+            if (viewModel.contactsSupported()) {
+                viewModel.mode(emailComposer.mode.CONTACTS);
+
+                var scrollElm = jQuery("#email-composer-contact-scroll:first", jQuery(this).parents("#email-composer:first"));
+                if (scrollElm) {
+                    var scrollDom = scrollElm.get(0);
+                    if (scrollDom && scrollDom.iScroll) {
+                        scrollDom.iScroll.refresh();
+                    }
+                }
+            }
+        },
+
+        emailComposer.showComposer = function () {
+            var viewModel = ko.dataFor(this);
+            viewModel.mode(emailComposer.mode.COMPOSER);
+        },
+
+        emailComposer.back = function () {
+            scn.viewEngine.back();
+        },
+
+        emailComposer.send = function () {
+            var viewModel = ko.dataFor(this.element);
+            if (viewModel.sending()) {
+                return;
+            }
+
+            viewModel.sending(true);
+
+            var selectedContacts = viewModel.selectedContacts();
+            if (selectedContacts.length == 0) {
+                alert("Please enter your friend's email addresses to continue!");
+                viewModel.sending(false);
+                return;
+            }
+
+            var list = [];
+            for (var i = 0; i < selectedContacts.length; i++) {
+                var contact = selectedContacts[i];
+
+                if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}\b/i.exec(contact.email()) == null) {
+                    var display = (contact.name() && contact.name() != contact.email()) ? (contact.name() + " (" + contact.email() + ")") : contact.email();
+                    alert("Invalid email address for " + display + ".  Please correct this address and try again.");
+                    viewModel.sending(false);
+                    return;
+                }
+
+                list.push({
+                    userReferralType: 'Email',
+                    emailAddress: contact.email
+                });
+            }
+
+            scn.showLoading();
+            scn.ajax({
+                url: scn.apiAddress + "userreferral/batch",
+                type: "POST",
+                data: { list: list },
+                success: function (data) {
+                    scn.hideLoading();
+                    viewModel.sending(false);
+                    emailComposer.back();
+                },
+                error: function (jqXhr, txtStatus) {
+                    scn.hideLoading();
+                    viewModel.sending(false);
+                    alert("Could not send your messsage.  Please verify all email addresses are correct and try again.");
+                }
+            });
+        },
+
+        emailComposer.selectContact = function () {
+            var contact = ko.dataFor(this.element);
+            var parentElm = jQuery(this.element).parents("#email-composer-contacts:first");
+            var viewModel = ko.dataFor(parentElm.get(0));
+            viewModel.selectedContacts.push(contact);
+            viewModel.mode(emailComposer.mode.COMPOSER);
+        },
+
+        emailComposer.showNotEditableMessage = function () {
+            alert("In order to receive XBowling referral points you can't edit the contents of the message!", { title: "Sorry!" });
+        }
+
+    }(window.scn.views.emailComposer = window.scn.views.emailComposer || {}));
+</script>
+<style type="text/css">
+    .email-composer {
+        width: 100%;
+        background-color: #FFFFFF;
+        margin: 0;
+        padding: 0;
+    }
+
+    .email-composer-bar {
+        background: #B8C1C8;
+        border-bottom: 1px solid #989EA4;
+        border-top: 1px solid #717D85;
+        color: #FFF;
+        font: bold 18px/21px Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 2px 0;
+        position: absolute;
+        text-shadow: 0 1px #646A6E;
+        -moz-text-shadow: 0 1px #646A6E;
+        -webkit-text-shadow: 0 1px #646A6E;
+        width: 100%;
+        height: 25px;
+    }
+
+    .email-composer-selected-contact {
+        background-color: blue;
+        color: white;
+        border-radius: 4px;
+        padding: 2px 5px;
+    }
+
+    .email-composer-selected-contact-highlight {
+        background-color: teal;
+    }
+
+    .email-composer-bar > :first-child {
+        float: left;
+        width: 25%;
+        margin-left: 1%;
+    }
+
+    .email-composer-bar > div {
+        text-align: center;
+        font-size: 13px;
+        font-weight: bold;
+        float: left;
+        margin: 0;
+        padding: 0;
+        width: 48%;
+    }
+
+    .email-composer-bar > :last-child {
+        float: right;
+        width: 25%;
+        margin-right: 1%;
+    }
+
+    .email-composer-field {
+        color: #666666;
+        width: 100%;
+        border-bottom: 1px solid #666666;
+        clear: both;
+        padding: 9px 3px;
+    }
+
+    .email-composer-field > a {
+        text-decoration: underline;
+        color: blue;
+    }
+
+    .email-composer-plus {
+        border-radius: 10px;
+        padding: 0 10px;
+        margin-right: 10px;
+        background-color: blue;
+        color: #FFFFFF !important;
+        float: right;
+    }
+
+    .email-composer-body {
+        position: absolute;
+        top: 30px;
+    }
+
+    .email-composer-field:last-child {
+        border: none;
+    }
+
+    .email-composer-field > input {
+        border: none;
+        margin: 0;
+        padding: 0;
+        width: 25px;
+        display: inline;
+        text-transform: none;
+    }
+
+    .email-composer-field > span, 
+    .email-composer-field > p {
+        color: #000000;
+    }
+
+    .email-composer-contact-list {
+        margin: 0;
+        padding: 10px 0 0 0;
+        list-style-type: none;
+    }
+
+    .email-composer-contact-list > li > div {
+        background: #B8C1C8;
+        border-bottom: 1px solid #989EA4;
+        border-top: 1px solid #717D85;
+        color: #FFF;
+        font: bold 18px/21px Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 2px 0;
+        text-shadow: 0 1px #646A6E;
+        -moz-text-shadow: 0 1px #646A6E;
+        -webkit-text-shadow: 0 1px #646A6E;
+        width: 100%;
+    }
+
+    .email-composer-contact-list > li > ul {
+        margin: 0;
+        padding: 0 0 0 5px;
+        list-style-type: none;
+    }
+
+    .email-composer-contact-list > li > ul > li {
+        border-bottom: 1px solid #989EA4;
+        border-top: 1px solid #717D85;
+    }
+
+    .email-composer-contact-list > li > ul > li:active {
+        background-color: blue;
+        color: #FFFFFF;
+    }
+
+    .email-composer-contact-list > li > ul > li > div {
+        margin: 10px;
+    }
+</style>
+<div id="email-composer" class="email-composer" data-load="scn.views.emailComposer.load">
+    <div class="email-composer-message" id="email-composer-message" data-bind="visible: mode() == scn.views.emailComposer.mode.COMPOSER">
+        <div class="email-composer-bar">
+            <div class="blue-button" data-bind="tap: scn.views.emailComposer.back">Cancel</div>
+            <div>Preview Your Message</div>
+            <div class="blue-button" data-bind="tap: scn.views.emailComposer.send">Send</div>
+        </div>
+        <div class="email-composer-body">
+            <div class="email-composer-field" data-tap="scn.views.emailComposer.toTap">
+                To: 
+                <span data-bind="foreach: selectedContacts">
+                    <span class="email-composer-selected-contact" data-bind="textCoalesce: [name(), email()], css: { 'email-composer-selected-contact-highlight': $parent.highlightedContact() == $data }"></span>
+                </span>
+                <input type="email" id="typing-email" />
+                <span class="email-composer-plus" data-tap="scn.views.emailComposer.showContacts" data-bind="visible: contactsSupported">+</span>
+            </div>
+            <div class="email-composer-field" data-tap="scn.views.emailComposer.showNotEditableMessage">Subject: <span>Check out XBowling - Bowl, Compete, and Win Prizes!</span></div>
+            <div class="email-composer-field" data-tap="scn.views.emailComposer.showNotEditableMessage">
+                <p>I just downloaded the Free XBowling App on my Apple/Android device, and I am winning real prizes while I bowl and compete!  Please join me by downloading and activating the App so we can enjoy XBowling together.</p>
+                <p>Click <span class="fake-link">here</span> to download!</p>
+                <p>Note: If the link above does not work, copy and paste the following URL into your browser: http://bit.ly/xbowlme </p>
+            </div>
+        </div>
+    </div>
+    <div class="email-composer-contacts" id="email-composer-contacts" data-bind="visible: mode() == scn.views.emailComposer.mode.CONTACTS">
+        <div class="email-composer-bar">
+            <div class="blue-button" data-tap="scn.views.emailComposer.showComposer">Back</div>
+            <div></div>
+        </div>
+        <br class="clear" />
+        <div id="email-composer-contact-scroll">
+            <ul data-bind="foreach: groups" class="email-composer-contact-list">
+                <li>
+                    <div data-bind="text: letter"></div>
+                    <ul data-bind="foreach: contacts">
+                        <li><div data-bind="tap: scn.views.emailComposer.selectContact, text: name() ? (name() + ' (' + email() + ')') : email()" data-tap-alloweventbubble="true"></div></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>

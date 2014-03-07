@@ -1,0 +1,210 @@
+<script type="text/javascript">
+    (function (opponentLevelPackages) {
+        opponentLevelPackages.packageViewModel = function (number, description, cost) {
+            this.number = ko.observable(number);
+            this.description = ko.observable(description);
+            this.cost = ko.observable(cost);
+            this.name = ko.computed(function () {
+                return "Level " + this.number();
+            }, this);
+        },
+
+        opponentLevelPackages.viewModel = function (bowlingGameId, selectedOpponent) {
+            this.bowlingGameId = ko.observable(bowlingGameId);
+            this.selectedOpponent = ko.observable(selectedOpponent);
+            this.packages = ko.observable([
+                new opponentLevelPackages.packageViewModel(1, "Win 1,000 points!", 10),
+                new opponentLevelPackages.packageViewModel(2, "Win 3,200 points!", 25),
+                new opponentLevelPackages.packageViewModel(3, "Win 6,500 points!", 50),
+                new opponentLevelPackages.packageViewModel(4, "Win 14,000 points!", 100),
+                new opponentLevelPackages.packageViewModel(5, "Win 75,000 points!", 500),
+                new opponentLevelPackages.packageViewModel(6, "Win 170,000 points!", 1000)
+            ]);
+        },
+
+        opponentLevelPackages.load = function () {
+            var elm = jQuery(this);
+
+            jQuery("#opponent-level-packages-credits", elm).text(scn.views.footer.getCurrentCredits());
+
+            var popupViewModel = scn.popup.getViewModel(elm);
+
+            var viewModel = new opponentLevelPackages.viewModel(popupViewModel.bowlingGameId, popupViewModel.selectedOpponent);
+            ko.applyBindings(viewModel, elm.get(0));
+
+            var opponentLevelPackagesScroll = jQuery("#opponent-level-packages-scroll", elm);
+            opponentLevelPackagesScroll.height(scn.popup.getHeight(elm) - 75);
+
+            var scroll = new iScroll(opponentLevelPackagesScroll.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+
+            scn.popup.registerPopupDestructor(this, function () {
+                if (scroll) {
+                    scroll.destroy();
+                    scroll = null;
+                }
+            });
+        },
+
+        opponentLevelPackages.changeOpponent = function () {
+            scn.popup.hide(this);
+        },
+
+        opponentLevelPackages.costButtonTap = function () {
+            var elm = jQuery(this.element);
+            
+            if (elm.data("in-confirm")) {
+                opponentLevelPackages.selectButtonTap.call(this);
+            } else {
+                elm.removeClass("clean-gray")
+                   .addClass("green-buy-button")
+                   .text("CONFIRM");
+                elm.data("in-confirm", true);
+            }
+        },
+
+        opponentLevelPackages.selectButtonTap = function () {
+            var elm = jQuery(this.element);
+            opponentLevelPackages.enter(elm);
+        },
+
+        opponentLevelPackages.enter = function (elm) {
+            var viewModel = ko.dataFor(elm.parents("#popup").get(0));
+
+            var selectedPackage = ko.dataFor(elm.get(0));
+
+            var selectedOpponent = viewModel.selectedOpponent();
+            var competitionEntry = {
+                bowlingGame: {
+                    id: viewModel.bowlingGameId()
+                },
+                creditWager: selectedPackage.cost()
+            };
+
+            // check legal for state by state restrictions
+            if (!scn.legal.checkH2HPostedEntry(competitionEntry.creditWager)) {
+                return;
+            }
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "bowlingcompetition/posted/" + selectedOpponent.id() + "/game",
+                type: "POST",
+                data: competitionEntry,
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    scn.views.footer.populateWallet();
+
+                    // hide the popup
+                    scn.popup.hide(elm, data);
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+
+                    if (jqXhr.status == 409) {
+                        // already entered
+                        alert("You are already entered into this competition.", {
+                            callback: function () {
+                                scn.popup.hide(elm);
+                            }
+                        });
+                    } else if (jqXhr.status == 402) {
+                        // payment required...not enough credits
+                        confirm("You do not have enough credits to enter this competition.  Would you like to purchase more credits now?", {
+                            title: "Uh oh!",
+                            callback: function (r) {
+                                if (r === NOTIFICATION_BUTTONS.OK) {
+                                    scn.popup.show("BuyMoreCredits", {
+                                        callback: function (callbackViewModel) {
+                                            if (callbackViewModel && callbackViewModel.purchaseMade) {
+                                                // try again
+                                                opponentLevelPackages.enter(elm);
+                                            }
+                                        },
+                                        height: 275
+                                });
+                                }
+                            }
+                        });
+                    } else {
+                        alert("An error occurred entering you into the competition.  Please try again.");
+                    }
+                }
+            });
+        }
+}(window.scn.views.opponentLevelPackages = window.scn.views.opponentLevelPackages || {}));
+</script>
+<div id="popup" data-load="scn.views.opponentLevelPackages.load">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span>Select Level</span>
+        </div>
+    </div>
+
+    <div id="challenge-popup-all">
+        <div class="select-a-challenge-container">
+            <div>
+                <p>
+                    Select a Level to Continue.
+                </p>
+                <div class="challenge-more-credits-container">
+                    <div class="coin-plus-credits-container">
+                    
+                        <div class="xcoin">
+                            <img src="xcoin.png" /></div>
+                        <div class="footer-inset-numeric credits" id="opponent-level-packages-credits" data-autoupdate="credits"></div>
+                    </div>
+                </div>
+
+                <button class="green-buy-button no-float" data-popup="BuyMoreCredits" data-popup-height="275">
+                    <span class="call-to-action">Buy Credits</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="all-challenge-container" id="opponent-level-packages-scroll">
+            <div style="height: 450px;">
+                <!-- ko foreach: packages -->
+                    <div class="single-challenge-container" data-bind="css: { 'no-border': $index() == ($parent.packages().length - 1) }">
+                        <div class="challenge-icon blue-challenge-button">
+                            <div class="number-icon" data-bind="text: number"></div>
+                        </div>
+
+
+                        <div class="challenge-desc-container">
+                            <h1 data-bind="text: name"></h1>
+                            <p class="emphasize" data-bind="text: description"></p>
+                        </div>
+
+                        <div class="challenge-popup-cost-container">
+                            <img class="credit-icon" src="xcoin.png" />
+                            <span class="prize-cost" data-bind="text: cost"></span>
+                        </div>
+
+                        <div class="buy-challenge-container">
+                            <button class="clean-gray" data-bind="tap: scn.views.opponentLevelPackages.costButtonTap" data-tap-alloweventbubble="true">
+                                ENTER
+                            </button>
+                        </div>
+
+                    </div>
+                <!-- /ko -->
+            </div>
+                <div class="button-container" style="float: right;">
+                    <div style="margin: auto;" class="in-game-button blue-general-button" data-tap="scn.views.opponentLevelPackages.changeOpponent">
+                        <span>Choose Different Opponent</span>
+                    </div>
+                </div>
+        </div>
+    </div>
+
+</div>

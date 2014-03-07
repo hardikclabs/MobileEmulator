@@ -1,0 +1,50 @@
+<script type="text/javascript">
+    (function (aboutUsPopup) {
+        aboutUsPopup.load = function () {
+            var scrollElm = jQuery("#about-us-popup-scroll", this);
+            var iscr = new iScroll(scrollElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: true
+            });
+
+            scn.popup.registerPopupDestructor(scrollElm, function () {
+                if (iscr) {
+                    iscr.destroy();
+                }
+            });
+        },
+
+        aboutUsPopup.close = function () {
+            scn.popup.hide(this);
+        }
+    }(window.scn.views.aboutUsPopup = window.scn.views.aboutUsPopup || {}));
+</script>
+<div id="popup" data-load="scn.views.aboutUsPopup.load">
+    <div id="popup-bg"></div>
+
+    <div class="popup-header"><div class="centered-container">
+        <span>About</span></div>
+    </div>
+
+    <div id="about-us-popup-scroll" class="popup-content no-text-transform" style="height: 210px">
+        <div style="height: 500px">
+            <p style="padding: 0 25px;" class="light-text">Sports Challenge Network, LLC ("SCN") was established in 2010 with the goal of increasing participation and fun in recreational sports through harnessing the power of mobile and social technology to offer players and fans new game experiences through personalization, challenges and contests, rewards, and social connections.  SCN will be the primary destination in the App universe and on the Web for fans, players, and other participants for competing and having fun  with their favorite sports.</p>
+            <p style="padding: 0 25px;" class="light-text">SCN's first offering, XBowling, targets the bowling industry, the largest recreational sport in the world with over 130 million annual participants globally.</p>
+            <p class="centered">
+                <img src="ga-logo.png" width="216" />
+            </p>
+            <!--div class="login-buttons">
+                <div class="button-container float-right">
+                    <div class="animated fadeIn medium-button orange-general-button" data-tap="scn.views.aboutUsPopup.close">
+                        <span>Done</span>
+                    </div>
+                </div>
+            </div-->
+        </div>
+    </div>
+</div>
+

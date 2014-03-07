@@ -1,0 +1,254 @@
+<script type="text/javascript">
+    (function (paymentProfile) {
+        paymentProfile.load = function () {
+            jQuery(this).bind("submit", paymentProfile.submit);
+        },
+
+        validateRequiredField = function (field, val, failMessage, message) {
+            if (val == "") {
+                if (message != "") {
+                    message += "\n";
+                }
+
+                message += failMessage;
+            }
+
+            return message;
+        },
+
+        paymentProfile.submit = function (event) {
+            cancelEvent(event);
+
+            var form = jQuery(this);
+
+            var firstNameField = jQuery("#first-name", form);
+            var firstName = firstNameField.val();
+
+            var lastNameField = jQuery("#last-name", form);
+            var lastName = lastNameField.val();
+
+            var addressField = jQuery("#address", form);
+            var address = addressField.val();
+
+            var cityField = jQuery("#city", form);
+            var city = cityField.val();
+
+            var stateField = jQuery("#state", form);
+            var state = stateField.val();
+
+            var zipField = jQuery("#zip", form);
+            var zip = zipField.val();
+
+            var cardNumberField = jQuery("#card-number", form);
+            var cardNumber = cardNumberField.val();
+
+            var expDateMonthField = jQuery("#exp-month", form);
+            var expDateMonth = expDateMonthField.val();
+
+            var expDateYearField = jQuery("#exp-year", form);
+            var expDateYear = expDateYearField.val();
+
+            var ccvField = jQuery("#ccv-number", form);
+            var ccv = ccvField.val();
+
+            var message = "";
+            message = validateRequiredField(firstNameField, firstName, "First Name is required", message);
+            message = validateRequiredField(lastNameField, lastName, "Last Name is required", message);
+            message = validateRequiredField(addressField, address, "Address is required", message);
+            message = validateRequiredField(cityField, city, "City is required", message);
+            message = validateRequiredField(stateField, state, "State is required", message);
+            message = validateRequiredField(zipField, zip, "Zip Code is required", message);
+            message = validateRequiredField(cardNumberField, cardNumber, "Credit Card Number is required", message);
+            message = validateRequiredField(expDateMonthField, expDateMonth, "Expiration Date Month is required", message);
+            message = validateRequiredField(expDateYearField, expDateYear, "Expiration Date Year is required", message);
+            message = validateRequiredField(ccvField, ccv, "CCV is required", message);
+
+            if (message != "") {
+                alert(message);
+                return false;
+            }
+
+            scn.showLoading();
+
+            var data = {
+                firstName: firstName,
+                lastName: lastName,
+                address: address,
+                city: city,
+                state: state,
+                zip: zip,
+                cardNumber: cardNumber,
+                cardExpirationDate: expDateYear + "-" + expDateMonth,
+                cardCcv: ccv
+            };
+
+            scn.ajax({
+                type: "POST",
+                url: scn.apiAddress + "paymentprofile",
+                data: data,
+                success: function (data) {
+                    scn.hideLoading();
+
+                    var hashData = scn.viewEngine.getViewIdFromHash();
+
+                    var returnTo = hashData.params.return;
+                    var hashDataString = scn.viewEngine.getViewIdStringFromHash(function (paramName) {
+                        return paramName != "return";
+                    });
+
+                    if (returnTo) {
+                        scn.viewEngine.changeView(returnTo + "?" + hashDataString);
+                    } else {
+                        scn.viewEngine.changeView("UserProfile");
+                    }
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+                    alert("An error occurred saving your payment information.  Please try again.");
+                }
+            });
+
+            return false;
+
+        }
+    }(window.scn.views.paymentProfile = window.scn.views.paymentProfile || {}));
+</script>
+
+<span data-template="Header"></span>
+
+<div id="content" class="font-interstate">
+    <div class="animated fadeInRight screen-title">Payment information</div>
+    <div class="form-container">
+        <form class="user-profile-form" data-load="scn.views.paymentProfile.load">
+            <ul>
+                <li>
+                    <div class="field-title">First Name</div>
+                    <input class="screen-name" type="text" id="first-name" placeholder="First Name" required />
+                </li>
+                <li>
+                    <div class="field-title">Last Name</div>
+                    <input class="screen-name" type="text" id="last-name" placeholder="Last Name" required />
+                </li>
+                <li>
+                    <div class="field-title">Address</div>
+                    <input class="screen-name" type="text" id="address" placeholder="Address" required />
+                </li>
+                <li>
+                    <div class="field-title">City</div>
+                    <input class="screen-name" type="text" id="city" placeholder="City" required />
+                </li>
+                <li>
+                    <div class="field-title">State</div>
+                    <select id="state" size="1">
+                        <option value="AK">AK</option>
+                        <option value="AL">AL</option>
+                        <option value="AR">AR</option>
+                        <option value="AZ">AZ</option>
+                        <option value="CA">CA</option>
+                        <option value="CO">CO</option>
+                        <option value="CT">CT</option>
+                        <option value="DC">DC</option>
+                        <option value="DE">DE</option>
+                        <option value="FL">FL</option>
+                        <option value="GA">GA</option>
+                        <option value="HI">HI</option>
+                        <option value="IA">IA</option>
+                        <option value="ID">ID</option>
+                        <option value="IL">IL</option>
+                        <option value="IN">IN</option>
+                        <option value="KS">KS</option>
+                        <option value="KY">KY</option>
+                        <option value="LA">LA</option>
+                        <option value="MA">MA</option>
+                        <option value="MD">MD</option>
+                        <option value="ME">ME</option>
+                        <option value="MI">MI</option>
+                        <option value="MN">MN</option>
+                        <option value="MO">MO</option>
+                        <option value="MS">MS</option>
+                        <option value="MT">MT</option>
+                        <option value="NC">NC</option>
+                        <option value="ND">ND</option>
+                        <option value="NE">NE</option>
+                        <option value="NH">NH</option>
+                        <option value="NJ">NJ</option>
+                        <option value="NM">NM</option>
+                        <option value="NV">NV</option>
+                        <option value="NY">NY</option>
+                        <option value="OH">OH</option>
+                        <option value="OK">OK</option>
+                        <option value="OR">OR</option>
+                        <option value="PA">PA</option>
+                        <option value="RI">RI</option>
+                        <option value="SC">SC</option>
+                        <option value="SD">SD</option>
+                        <option value="TN">TN</option>
+                        <option value="TX">TX</option>
+                        <option value="UT">UT</option>
+                        <option value="VA">VA</option>
+                        <option value="VT">VT</option>
+                        <option value="WA">WA</option>
+                        <option value="WI">WI</option>
+                        <option value="WV">WV</option>
+                        <option value="WY">WY</option>
+                    </select>
+                </li>
+                <li>
+                    <div class="field-title">Zip Code</div>
+                    <input class="screen-name" type="number" id="zip" placeholder="Zip Code" required />
+                </li>
+                <li>
+                    <div class="field-title">Card Number</div>
+                    <input class="screen-name" type="number" id="card-number" placeholder="Card Number" required />
+                </li>
+                <li>
+                    <div class="field-title">Exp Date</div>
+                    
+                    <select id="exp-year" style="width:25%;">
+                        <option>2013</option>
+                        <option>2014</option>
+                        <option>2015</option>
+                        <option>2016</option>
+                        <option>2017</option>
+                        <option>2018</option>
+                        <option>2019</option>
+                        <option>2020</option>
+                        <option>2021</option>
+                        <option>2022</option>
+                        <option>2023</option>
+                        <option>2024</option>
+                        <option>2025</option>
+                    </select><p> / </p>
+                    <select id="exp-month" style="width:15%;">
+                        <option value="01">1</option>
+                        <option value="02">2</option>
+                        <option value="03">3</option>
+                        <option value="04">4</option>
+                        <option value="05">5</option>
+                        <option value="06">6</option>
+                        <option value="07">7</option>
+                        <option value="08">8</option>
+                        <option value="09">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                    </select>
+                </li>
+                <li>
+                    <div class="field-title">CCV Number</div>
+                    <input class="screen-name" type="number" id="ccv-number" placeholder="CCV Number" required />
+                </li>
+               
+                <li class="submissions">
+                    <!--button class="animated fadeIn next-btn partial-rounded dark-blue-tile font-interstate button" data-changeview="UserProfile">User Profile</button>
+                    <button class="animated fadeIn next-btn partial-rounded dark-blue-tile font-interstate button" data-changeview="ChangePassword">Change Password</button-->
+                    <button class="animated fadeIn next-btn partial-rounded orange-tile font-interstate button float-right" type="submit">Done</button>
+                </li>
+            </ul>
+        </form>
+    </div>
+
+</div>
+
+<div id="footer" class=" font-interstate">
+</div>

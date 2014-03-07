@@ -1,0 +1,784 @@
+<script type="text/javascript">
+    (function (scoresView) {
+    scoresView.nameText = null,
+    scoresView.nameTap = null,
+
+    scoresView.load = function () {
+        var elm = jQuery("#scores-view-wrapper");
+        var scoreGames = jQuery("#scores-game-wrapper", elm);
+
+        var templateElm = elm.parent("[data-template]");
+        scoresView.nameText = templateElm.attr("data-scoresview-nametext");
+        scoresView.nameTap = templateElm.attr("data-scoresview-nametap");
+
+        var games = window.games();
+
+        for (var i = 0; i < games.length; i++) {
+            games[i].getTapAttribute = function (squareScore) {
+                return ko.dependentObservable(function () {
+                    return squareScore() !== "";
+                }, this)();
+            }
+        }
+
+        ko.applyBindings({ games: window.games }, scoreGames.get(0));
+
+        elm.removeClass("hidden");
+
+        var newHeight = jQuery(document).height() - elm.position().top;
+        elm.height(newHeight);
+
+        var mainScroll = new iScroll(elm.get(0), {
+            snap: false,
+            momentum: true,
+            hScroll: false,
+            hScrollbar: false,
+            vScroll: true,
+            vScrollbar: false
+        });
+        scn.viewEngine.registerViewDestructor(function () {
+            if (mainScroll) {
+                mainScroll.destroy();
+                mainScroll = null;
+            }
+        });
+
+        var frameWrappers = jQuery(".frame-wrapper", elm);
+        var frameWrappersLength = frameWrappers.length;
+        for (var i = 0; i < frameWrappersLength; i++) {
+            var frameWrapper = jQuery(frameWrappers[i]);
+            var scroller = frameWrapper.children().first();
+            var frame = jQuery(".frame:first", scroller);
+
+            var singleFrameWidth = frame.outerWidth(true);
+            frameWrapper.width(singleFrameWidth * 5);
+            scroller.width(singleFrameWidth * 10);
+
+            var scroll = new iScroll(frameWrapper.get(0), {
+                snap: true,
+                momentum: false,
+                hScroll: true,
+                hScrollbar: false,
+                vScroll: false,
+                vScrollbar: false,
+                onScrollEnd: function () {
+                    var pageIndicator = jQuery(this.wrapper).siblings(".page-indicator");
+                    jQuery(".selected", pageIndicator).removeClass("selected");
+                    jQuery(":nth-child(" + (this.currPageX + 1) + ")", pageIndicator).addClass("selected");
+                }
+            });
+            scn.viewEngine.registerViewDestructor(function () {
+                if (scroll) {
+                    scroll.destroy();
+                    scroll = null;
+                }
+            });
+        }
+
+
+        scn.gameplay.wireFrameTaps(elm);
+
+        if (mainScroll) {
+            mainScroll.refresh();
+        }
+    },
+
+    scoresView.getName = function (name) {
+        if (scoresView.nameText && scoresView.nameText != "") {
+            return scoresView.nameText;
+        } else {
+            return name;
+        }
+    },
+
+    scoresView.onNameTap = function () {
+        if (scoresView.nameTap) {
+            scn.viewEngine.callFunction(this, scoresView.nameTap);
+        } else {
+            scn.gameplay.onBowlingLaneScoreNameClick(arguments);
+        }
+    }
+}(window.scn.views.scoresView = window.scn.views.scoresView || {}));
+</script>
+<div id="scores-view-wrapper" class="hidden">
+    <div data-bind="foreach: games" id="scores-view-games">
+        <div class="laneWrapper">
+            <div class="lane" data-bind="{ attr: { 'data-player': name } }">
+                <div class="frame-wrapper">
+                    <div class="scroller">
+                        <div class="frame">
+                            <div class="frame-header">FRAME 1</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore1">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore2">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore1"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore1) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins01, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore2) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins02, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 2</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore3">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore4">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore2"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore3) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins03, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore4) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins04, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 3</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore5">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore6">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore3"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore5) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins05, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore6) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins06, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 4</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore7">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore8">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore4"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore7) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins07, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore8) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins08, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 5</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore9">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore10">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore5"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore9) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins09, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore10) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins10, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 6</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore11">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore12">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore6"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore11) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins11, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore12) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins12, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 7</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore13">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore14">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore7"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore13) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins13, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore14) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins14, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 8</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore15">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore16">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore8"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore15) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins15, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore16) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins16, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame">
+                            <div class="frame-header">FRAME 9</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw"><span data-bind="text: squareScore17">&nbsp;</span></div>
+                                <div class="throw second"><span data-bind="text: squareScore18">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore9"></span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore17) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins17, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore18) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins18, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                        </div>
+
+                        <div class="frame lastFrame">
+                            <div class="frame-header">FRAME 10</div>
+                            <div class="frame-content" data-tapenabled="true" data-taporder="1">
+                                <div class="throw lastFrame"><span data-bind="text: squareScore19">&nbsp;</span></div>
+                                <div class="throw second lastFrame"><span data-bind="text: squareScore21">&nbsp;</span></div>
+                                <div class="throw second lastFrame"><span data-bind="text: squareScore20">&nbsp;</span></div>
+                                <div class="frame-score"><span data-bind="text: frameScore10">&nbsp;</span></div>
+                            </div>
+                            <div class="frame-balls throw1" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore19) } }" data-taporder="2">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins19, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">1</div>
+                            </div>
+                            <div class="frame-balls throw2" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore20) } }" data-taporder="3">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins20, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">2</div>
+                            </div>
+                            <div class="frame-balls throw3" data-bind="{attr: { 'data-tapenabled': getTapAttribute(squareScore21) } }" data-taporder="4">
+                                <div class="ballRow first">
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 6) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 7) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 8) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 9) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 3) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 4) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 5) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 1) } }">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 2) } }">&nbsp;</div>
+                                </div>
+                                <div class="ballRow">
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div class="ballPlaceholder">&nbsp;</div>
+                                    <div data-bind="{attr: { class: scn.gameplay.getThrowClass(standingPins21, 0) } }">&nbsp;</div>
+                                </div>
+                                <div class="frame-throw-number">3</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="page-indicator">
+                    <span class="selected">&nbsp;</span>
+                    <span>&nbsp;</span>
+                </div>
+                <div class="frame-title">
+                    <span>
+                        <span data-bind="text: scn.views.scoresView.getName(name), click: scn.views.scoresView.onNameTap"></span>
+                    </span>
+                    <span>
+                        Score: <span data-bind="text: finalScore"></span>
+                    </span>
+                </div>
+                <br class="clear" />
+            </div>
+        </div>
+    </div>
+</div>

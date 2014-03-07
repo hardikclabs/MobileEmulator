@@ -1,0 +1,156 @@
+<script type="text/javascript">
+    (function (footer) {
+        footer.load = function () {
+            var elm = jQuery(this);
+            var parent = elm.parent();
+            parent.css("position", "absolute");
+            parent.css("bottom", "0");
+            parent.css("width", "100%");
+
+            // subscribe to hasSession
+            var subscription = scn.hasSession.subscribe(function (hasSession) {
+                showHideFooterBasedOnSession(hasSession, elm);
+            });
+
+            scn.viewEngine.registerViewDestructor(function () {
+                subscription.dispose();
+            });
+
+            // invoke it for initial show/hide
+            showHideFooterBasedOnSession(scn.hasSession(), elm);
+
+            // load wallet
+            footer.populateWallet(elm);
+        },
+
+        footer.getCurrentCredits = function (containerElm) {
+            var creditsElm = containerElm ? jQuery("#footer-credits", containerElm) : jQuery("#footer-credits");
+            var existingCredits = parseInt(creditsElm.text().replace(/,/g, ""));
+            return existingCredits;
+        },
+
+        footer.increaseCredits = function (increase, callback, containerElm) {
+            if (isNaN(increase))
+                return;
+
+            var existingCredits = footer.getCurrentCredits(containerElm);
+            var newCredits = existingCredits + increase;
+
+            //scn.animateNumbers(creditsElm, newCredits, callback);
+            scn.autoUpdateNumbers("credits", newCredits, callback);
+        },
+
+        footer.increasePoints = function (increase, callback, containerElm) {
+            if (isNaN(increase))
+                return;
+
+            var pointsElm = containerElm ? jQuery("#footer-points", containerElm) : jQuery("#footer-points");
+            var existingPoints = parseInt(elm.text().replace(/,/g, ""));
+            var newPoints = existingPoints + increase;
+            scn.animateNumbers(pointsElm, newPoints, callback);
+        },
+
+        footer.updatePoints = function (newPoints, callback, containerElm) {
+            var pointsElm = containerElm ? jQuery("#footer-points", containerElm) : jQuery("#footer-points");
+            scn.animateNumbers(pointsElm, newPoints, callback);
+        },
+
+        showHideFooterBasedOnSession = function (hasSession, elm) {
+            if (hasSession) {
+                elm.removeClass("fadeOut hidden")
+                    .addClass("animated fadeIn");
+
+                footer.populateWallet(elm);
+            } else {
+                elm.removeClass("fadeIn")
+                    .addClass("hidden");
+
+                scn.walletData = null;
+            }
+        },
+
+        footer.populateWallet = function (elm) {
+            if (!scn.hasSession()) {
+                jQuery("#dashboard-footer", elm).addClass("hidden");
+                return;
+            }
+
+            var pointsElm = elm ? jQuery("#footer-points", elm) : jQuery("#footer-points");
+            var creditsElm = elm ? jQuery("#footer-credits", elm) : jQuery("footer-credits");
+
+            if (scn.walletData) {
+                pointsElm.text(scn.addCommas(scn.walletData.availableRewardPoints));
+                creditsElm.text(scn.addCommas(scn.walletData.credits));
+            } 
+
+            scn.ajax({
+                url: scn.apiAddress + "userprofile/wallet",
+                type: "GET",
+                dataType: "json",
+                success: function (data) {
+                    scn.walletData = data;
+                    pointsElm.text(scn.addCommas(scn.walletData.availableRewardPoints));
+                    //creditsElm.text(scn.addCommas(scn.walletData.credits));
+                    scn.autoUpdateNumbers("credits", scn.walletData.credits);
+                },
+                error: function (jqXhr) {
+                    console.log("wallet request failed with error " + jqXhr.status);
+
+                    if (jqXhr.status == 401) {
+                        scn.clearSession();
+                    }
+                }
+            });
+        },
+
+        footer.buyCreditsTap = function () {
+            scn.popup.show("BuyMoreCredits", { height: 275 });
+        },
+
+        footer.redemptionTap = function () {
+            if (scn.legal.checkRedemption()) {
+                scn.viewEngine.changeView("RedemptionCategories");
+            }
+        }
+}(window.scn.views.footer = window.scn.views.footer || {}));
+</script>
+<div id="dashboard-footer" data-load="scn.views.footer.load" data-bind="allowBindings: false">
+     <ul class="game-section">
+        <li class="footer-button get-prizes" data-tap="scn.views.footer.redemptionTap">
+            <div class="promo"><img src="sticker-new-prizes.png" /></div>
+            <div class="footer-button-text">Get Prizes</div>
+        </li>
+    <li class="footer-inset game-points">
+        <div class="footer-inset-title">
+            SCN Reward Pts
+        </div>
+        <div class="footer-inset-numeric" id="footer-points"></div>
+    </li>
+    <li class="footer-inset game-credits">
+        <div class="credits-text footer-inset-title ">Credits</div>
+        <div class="credit-count-container">
+            <div class="coin-plus-credits-container">
+                <div class="xcoin"><img src="xcoin.png" /></div>
+                <div class="footer-inset-numeric credits" id="footer-credits" data-autoupdate="credits"></div>
+            </div>
+        </div>
+    </li>
+
+        <li class="footer-button buy-credits" data-tap="scn.views.footer.buyCreditsTap">
+            <div class="promo"><img src="sticker-sale.png" /></div>
+            <div class="footer-button-text">Buy Credits</div>
+        </li>
+
+    </ul>
+    
+    
+    <ul class="settings-section">
+       
+        <li class="footer-button settings" id="profile-button" data-popup="SettingsPopup">
+                    <div class="footer-button-text" style="margin-top: 18px;font-size: 8px;">Settings</div>
+        </li> 
+        <li class="footer-button help" id="game-history-button" data-popup="FAQCategoryPopup">
+                    <div class="footer-button-text" style="margin-top: 18px;font-size: 9px;">Help</div>
+        </li>
+    </ul>
+</div>

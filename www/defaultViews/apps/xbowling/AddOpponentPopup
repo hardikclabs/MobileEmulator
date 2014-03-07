@@ -1,0 +1,237 @@
+<script type="text/javascript">
+    (function (addOpponentPopup) {
+        addOpponentViewModel = function () {
+            this.opponents = ko.mapping.fromJS([]);
+            this.selectedOpponent = ko.observable();
+            this.search = ko.observable();
+            this.throttledSearch = ko.computed(this.search)
+                                    .extend({ throttle: 750 });
+            this.opponentType = ko.observable("all");
+            this.bowlingGameId = ko.observable();
+            this.competitionType = ko.observable();
+        },
+
+        addOpponentPopup.load = function () {
+            scn.showLoading();
+
+            var that = this;
+
+            var elm = jQuery(this);
+            var viewModel = ko.dataFor(elm.get(0));
+            if (!viewModel) {
+                var popupViewModel = scn.popup.getViewModel(elm);
+
+                viewModel = new addOpponentViewModel();
+                viewModel.bowlingGameId(popupViewModel.bowlingGameId);
+                viewModel.competitionType(popupViewModel.competitionType);
+            }
+
+            // wire up iscroll
+            var scrollElm = jQuery("#add-opponent-popup-scroll", elm);
+            scrollElm.height(scn.popup.getHeight(elm) - 70);
+            var mainScroll = new iScroll(scrollElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+            scn.viewEngine.registerViewDestructor(function () {
+                if (mainScroll) {
+                    mainScroll.destroy();
+                    mainScroll = null;
+                }
+            });
+
+            var searchTerm = viewModel.throttledSearch();
+
+            var data = {};
+            if (searchTerm && searchTerm.trim()) {
+                data.search = searchTerm.trim();
+            }
+
+            var endpoint = "bowlinggame/" + viewModel.bowlingGameId() + "/competition/" + viewModel.competitionType().toLowerCase() + "/available";
+            if (viewModel.opponentType() == "friends") {
+                endpoint +=  "/friends";
+            }
+
+            if (data.search) {
+                endpoint += "/search";
+            }
+
+            scn.ajax({
+                url: scn.apiAddress + endpoint,
+                type: "GET",
+                data: data,
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+                    
+                    ko.mapping.fromJS(data, viewModel.opponents);
+
+                    if (!elm.attr("data-bound")) {
+                        ko.applyBindings(viewModel, elm.get(0));
+                        elm.attr("data-bound", true);
+
+                        //ko.applyBindings(viewModel, jQuery("#search-form").get(0));
+                        viewModel.throttledSearch.subscribe(function () {
+                            addOpponentPopup.load.call(that);
+                        });
+                        viewModel.opponentType.subscribe(function () {
+                            addOpponentPopup.load.call(that);
+                        });
+                    }
+                   
+                    if (scrollElm) {
+                        var innerScroll = scrollElm.children(":first");
+                        innerScroll.height((data.length * 41) + 25);
+                    }
+
+                    if (mainScroll) {
+                        mainScroll.refresh();
+                    }
+
+                    viewModel.selectedOpponent(null);
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                }
+            });
+        },
+
+        addOpponentPopup.opponentTypeChange = function () {
+            var elm = jQuery(this.element);
+            var viewModel = ko.dataFor(this.element);
+            viewModel.opponentType(elm.attr("data-radio-value"));
+        },
+
+        addOpponentPopup.selectOpponent = function () {
+            var elm = jQuery(this.element);
+            elm.siblings(".opponent-active").removeClass("opponent-active");
+            elm.addClass("opponent-active");
+
+            var viewModel = ko.dataFor(elm.get(0));
+
+            var popupElm = elm.parents("#popup:first");
+            var mainViewModel = ko.dataFor(popupElm.get(0));
+
+            mainViewModel.selectedOpponent(viewModel);
+
+            var opponentInfo = jQuery("#opponent-info-container");
+            opponentInfo.addClass("hidden");
+            opponentInfo.addClass("animated bounceIn").removeClass("hidden");
+        },
+
+        addOpponentPopup.confirmOpponent = function () {
+            var elm = this.element;
+
+            var parent = jQuery(elm).parents("#popup:first");
+
+            var popupModel = scn.popup.getViewModel(this.element);
+            if (popupModel == null || !popupModel.bowlingGameId) {
+                alert("An error occurred entering you into this challenge.");
+                return;
+            }
+
+            var viewModel = ko.dataFor(this.element);
+            scn.popup.show("OpponentLevelPackages", {
+                viewModel: {
+                    bowlingGameId: viewModel.bowlingGameId(),
+                    selectedOpponent: viewModel.selectedOpponent()
+                },
+                callback: function (callbackData) {
+                    if (callbackData) {
+                        //addOpponentPopup.load.call(parent);
+                        scn.popup.hide(elm, true);
+                    }
+                },
+                height: "auto"
+            });
+        }
+    }(window.scn.views.addOpponentPopup = window.scn.views.addOpponentPopup || {}));
+</script>
+<div id="popup" data-load="scn.views.addOpponentPopup.load">
+    <ul class="full-list">
+        <li class="button-container">
+            <div class="in-game-button blue-general-button" data-radio="opponentType" data-radio-value="all" data-bind="css: { 'blue-general-button-depressed': opponentType() == 'all' }, tap: scn.views.addOpponentPopup.opponentTypeChange">
+                <span>All Xbowlers</span>
+            </div>
+
+            <div class="in-game-button blue-general-button" data-radio="opponentType" data-radio-value="friends" data-bind="css: { 'blue-general-button-depressed': opponentType() == 'friends' }, tap: scn.views.addOpponentPopup.opponentTypeChange">
+                <span>Your Friends</span>
+            </div>
+
+            <div class="search-xbowlers">
+                <input data-bind="value: search, valueUpdate: 'afterkeydown'" type="text" placeholder="Search Xbowlers..." />
+            </div>
+        </li>
+        <!----- TABLE HEADER --------->
+        <li class="table-header">
+            <ul>
+                <li class="username">Game</li>
+                <li class="buy-in">Handicap</li>
+                <li class="games-left">Expires</li>
+            </ul>
+        </li>
+    </ul>
+    <ul class="full-list" data-bind="visible: opponents().length == 0">
+        <li class="opponent">
+            <p style="color: #FFFFFF;">No opponents are currently available.</p>
+        </li>
+    </ul>
+    <div id="add-opponent-popup-scroll" class="hundred-percent-width">
+        <ul class="full-list" data-bind="foreach: opponents, visible: opponents().length > 0">
+            <!----- OPPONENT 1 --------->
+            <li class="opponent" data-bind="tap: scn.views.addOpponentPopup.selectOpponent" data-tap-alloweventbubble="true">
+                <a class="menu-internal">
+                <ul>
+                    <li class="opponent-username">
+                        <div class="xb-logo-container">
+                            <div class="xb-logo">
+                                <img src="logo-xbowling-small.png" />
+                            </div>
+                        </div>
+                        <div class="opponent-name-container">
+                            <div class="opponent-name" data-bind="text: scn.limitCharacters(name(), 15)"></div>
+                            <div class="opponent-xbowling-avg"><span data-bind="text: scn.limitCharacters(creatorUserName(), 15)"></span></div>
+                        </div>
+                    </li>
+                    <li class="opponent-buy-in">
+                        <div class="centered">
+                            <div class="buy-in-amt" data-bind="text: creatorHandicap"></div>
+                        </div>
+                    </li>   
+                    <li class="opponent-games-left" data-bind="text: moment(expirationDateTime()).fromNow()"></li>
+
+                </ul>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div id="opponent-info-container" class="opponent-info-container" data-bind="css: { hidden: selectedOpponent() == null }">
+        <div class="header">
+            <span>Opponent Info</span>
+        </div>
+
+        <div class="opponent-profile" data-bind="if: selectedOpponent">
+            <div data-bind="with: selectedOpponent">
+                <div class="avatar-container">
+                    <div class="avatar"><img src="logo-xbowling-small.png" /></div>
+                </div>
+                <ul class="profile">
+                    <li class="username" data-bind="text: scn.limitCharacters(name(), 15)"></li>
+                    <li class="xbowling-avg"><span data-bind="text: scn.limitCharacters(creatorUserName(), 15)"></span></li>
+                    <li class="xbowling-avg">Average: <span data-bind="text: creatorAverage"></span></li>
+                    <li class="region">Region: <span data-bind="text: creatorRegion"></span></li>
+                </ul>
+            </div>
+
+            <div class="button-container">
+                <div class="select-opponent-button blue-general-button" data-bind="tap: scn.views.addOpponentPopup.confirmOpponent">
+                    <span>Select Opponent</span>
+                </div>
+            </div>
+        </div>
+</div>

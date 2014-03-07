@@ -1,0 +1,28 @@
+ <span data-template="Header"></span>
+ <div id="content" class="font-interstate">
+    
+      <div id="popup-container" class="animated shake">
+         <div class="popup-header">
+             <div class="popup-title blue-tile">Oh No!</div>
+             <div class="close-popup blue-tile">
+                 <div class="close-icon">
+                <img src="close.png" />
+             </div>
+             </div>
+         </div>
+
+         <div class="popup-content">
+             <div class="icon-container">
+                <img src="challenge-coin.png" />
+             </div>
+             <div class="popup-message">You don't have enough credits to enter these challenges</div>
+         </div>
+
+         <div class="popup-footer">
+             <div class="popup-footer-bar dark-blue-tile"></div>
+             <div class=" fadeIn done-btn partial-rounded orange-tile button popup-button">Get More Now!</div>
+         </div>
+
+     </div>
+ </div>
+<div id="footer" class="font-interstate no-background"></div>

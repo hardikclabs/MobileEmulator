@@ -1,0 +1,331 @@
+<script type="text/javascript">
+    (function (redemptionAddress) {
+        redemptionAddress.product = 0,
+        redemptionAddress.costPoints = 0,
+
+        redemptionAddress.load = function () {
+            jQuery("form", this).bind("submit", redemptionAddress.submitForm);
+
+            var hashData = scn.viewEngine.getViewIdFromHash();
+
+            redemptionAddress.costPoints = hashData.params.costPoints;
+            redemptionAddress.product = hashData.params.product;
+
+            if (scn.walletData) {
+                if (redemptionAddress.costPoints > scn.walletData.availableRewardPoints) {
+                    alert("You do not have enough points to purchase that item.", {
+                        title: "Uh oh!",
+                        callback: function () {
+                            scn.viewEngine.changeView("Merchandise");
+                        }
+                    });
+                    return;
+                }
+            } else {
+                // load wallet info
+                scn.ajax({
+                    url: scn.apiAddress + "userprofile/wallet",
+                    type: "GET",
+                    dataType: "json",
+                    success: function (data) {
+                        scn.walletData = data;
+                    },
+                    error: function (jqXhr) {
+                        console.log("wallet request failed with error " + jqXhr.status);
+
+                        if (jqXhr.status == 401) {
+                            scn.clearSession();
+                            scn.viewEngine.changeView("new-1-MainDashboard");
+                        }
+                    }
+                });
+            }
+
+            var scrollElm = jQuery("#redemption-address-scroll", this);
+            scrollElm.height(scn.viewEngine.windowHeight - 108);
+            var iscr = new iScroll(scrollElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: true
+            });
+
+            scn.viewEngine.registerViewDestructor(function () {
+                if (iscr) {
+                    iscr.destroy();
+                    iscr = null;
+                }
+            });
+
+            // load last address
+            var lastAddressStr = localStorage.getItem("scn-redemptionaddress");
+            if (lastAddressStr) {
+                var lastAddress = JSON.parse(lastAddressStr);
+
+                var firstNameField = jQuery("#first-name", this);
+                firstNameField.val(lastAddress.firstName);
+
+                var lastNameField = jQuery("#last-name", this);
+                lastNameField.val(lastAddress.lastName);
+
+                var addressLine1Field = jQuery("#addressLine1", this);
+                addressLine1Field.val(lastAddress.addressLine1);
+
+                var addressLine2Field = jQuery("#addressLine2", this);
+                addressLine2Field.val(lastAddress.addressLine2);
+
+                var cityField = jQuery("#city", this);
+                cityField.val(lastAddress.city);
+
+                var stateField = jQuery("#state", this);
+                stateField.val(lastAddress.state);
+
+                var zipField = jQuery("#zip", this);
+                zipField.val(lastAddress.zip);
+            }
+        },
+
+        validateRequiredField = function (field, val, failMessage, message) {
+            if (val == "") {
+                if (message != "") {
+                    message += "\n";
+                }
+
+                message += failMessage;
+            }
+
+            return message;
+        },
+
+        redemptionAddress.submitForm = function (event) {
+            cancelEvent(event);
+            var form = jQuery(this);
+            return redemptionAddress.submit(form);
+        },
+
+        redemptionAddress.submitButton = function () {
+            var button = jQuery(this);
+            var form = button.parents("form:first");
+            return redemptionAddress.submit(form);
+        },
+
+        redemptionAddress.submit = function (form) {
+            if (scn.walletData) {
+                if (redemptionAddress.costPoints > scn.walletData.availableRewardPoints) {
+                    alert("You do not have enough points to purchase that item.", {
+                        title: "Uh oh!",
+                        callback: function () {
+                            scn.viewEngine.changeView("Merchandise");
+                        }
+                    });
+                    return false;
+                }
+            }
+
+            var firstNameField = jQuery("#first-name", form);
+            var firstName = firstNameField.val();
+
+            var lastNameField = jQuery("#last-name", form);
+            var lastName = lastNameField.val();
+
+            var addressLine1Field = jQuery("#addressLine1", form);
+            var addressLine1 = addressLine1Field.val();
+
+            var addressLine2Field = jQuery("#addressLine2", form);
+            var addressLine2 = addressLine2Field.val();
+
+            var cityField = jQuery("#city", form);
+            var city = cityField.val();
+
+            var stateField = jQuery("#state", form);
+            var state = stateField.val();
+
+            var zipField = jQuery("#zip", form);
+            var zip = zipField.val();
+
+            var message = "";
+            message = validateRequiredField(firstNameField, firstName, "First Name is required", message);
+            message = validateRequiredField(lastNameField, lastName, "Last Name is required", message);
+            message = validateRequiredField(addressLine1Field, addressLine1, "Address is required", message);
+            message = validateRequiredField(cityField, city, "City is required", message);
+            message = validateRequiredField(stateField, state, "State is required", message);
+            message = validateRequiredField(zipField, zip, "Zip Code is required", message);
+
+            if (message != "") {
+                alert(message, { title: "Uh oh!" });
+                return false;
+            }
+
+            scn.showLoading();
+
+            var viewParams = scn.viewEngine.getViewIdFromHash();
+
+            var purchaseRequest = {
+                product: { id: redemptionAddress.product },
+                shipToName: firstName + " " + lastName,
+                shipToAddressLine1: addressLine1,
+                shipToAddressLine2: addressLine2,
+                shipToCity: city,
+                shipToState: state,
+                shipToZip: zip,
+                redemptionProductSizeGroupItem: { id: viewParams.params.size }
+            };
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "redemptionrequest",
+                type: "POST",
+                data: purchaseRequest,
+                success: function (data) {
+                    scn.hideLoading();
+
+                    alert("Your request has been submitted! Watch your email for a confirmation. We'll see you back on the lanes soon!", {
+                        title: "Congratulations!",
+                        callback: function (r) {
+                            scn.viewEngine.changeView("new-1-MainDashboard");
+                        }
+                    });
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+
+                    switch (jqXhr.status) {
+                        case 400:
+                            alert("You do not have enough points to purchase that item.", {
+                                title: "Uh oh!"
+                            });
+                            break;
+
+                        default:
+                            alert("An error occurred purchasing that item.  Please try again.");
+                            break;
+                    }
+                }
+            });
+
+            var forLocalStorage = {
+                firstName: firstName,
+                lastName: lastName,
+                addressLine1: addressLine1,
+                addressLine2: addressLine2,
+                city: city,
+                state: state,
+                zip: zip
+            };
+
+            localStorage.setItem("scn-redemptionaddress", JSON.stringify(forLocalStorage));
+
+            return false;
+
+        }
+    }(window.scn.views.redemptionAddress = window.scn.views.redemptionAddress || {}));
+</script>
+
+<div id="redemption-wrapper">
+    <div class="header">
+        <div class="header-left"> 
+            <div class="header-button orange-button" data-tap="scn.viewEngine.back"><p>Back</p></div>
+        </div>
+        <div class="header-center">
+            <h1 style="font-size: 25px;">Shipping Information</h1>
+        </div>
+        <div class="header-right">
+            <img src="home-icon.png" style="width: 49px; float: right; margin: 10px 10px 0 0" data-changeview="new-1-MainDashboard" data-changeview-direction="right" />
+        </div>
+    </div>
+    <div id="content" class="font-interstate" style="margin-top: 25px" data-load="scn.views.redemptionAddress.load">
+        <div class="form-container hundred-percent-width centered" id="redemption-address-scroll">
+            <form class="user-profile-form" style="height: 400px; width: 75%; margin: auto;">
+                <ul>
+                    <li>
+                        <div class="field-title">First Name</div>
+                        <input class="screen-name no-uppercase" type="text" id="first-name" placeholder="FIRST NAME" data-tap-alloweventbubble="true" />
+                    </li>
+                    <li>
+                        <div class="field-title">Last Name</div>
+                        <input class="screen-name no-uppercase" type="text" id="last-name" placeholder="LAST NAME" data-tap-alloweventbubble="true" />
+                    </li>
+                    <li>
+                        <div class="field-title">Address</div>
+                        <input class="screen-name no-uppercase" type="text" id="addressLine1" placeholder="ADDRESS LINE 1" data-tap-alloweventbubble="true" />
+                        <input class="screen-name no-uppercase" type="text" id="addressLine2" placeholder="ADDRESS LINE 2" data-tap-alloweventbubble="true" />
+                    </li>
+                    <li>
+                        <div class="field-title">City</div>
+                        <input class="screen-name no-uppercase" type="text" id="city" placeholder="CITY" data-tap-alloweventbubble="true" />
+                    </li>
+                    <li>
+                        <div class="field-title">State</div>
+                        <select id="state" style="height: 50px" data-tap-alloweventbubble="true">
+                            <option value="AK">AK</option>
+                            <option value="AL">AL</option>
+                            <option value="AR">AR</option>
+                            <option value="AZ">AZ</option>
+                            <option value="CA">CA</option>
+                            <option value="CO">CO</option>
+                            <option value="CT">CT</option>
+                            <option value="DC">DC</option>
+                            <option value="DE">DE</option>
+                            <option value="FL">FL</option>
+                            <option value="GA">GA</option>
+                            <option value="HI">HI</option>
+                            <option value="IA">IA</option>
+                            <option value="ID">ID</option>
+                            <option value="IL">IL</option>
+                            <option value="IN">IN</option>
+                            <option value="KS">KS</option>
+                            <option value="KY">KY</option>
+                            <option value="LA">LA</option>
+                            <option value="MA">MA</option>
+                            <option value="MD">MD</option>
+                            <option value="ME">ME</option>
+                            <option value="MI">MI</option>
+                            <option value="MN">MN</option>
+                            <option value="MO">MO</option>
+                            <option value="MS">MS</option>
+                            <option value="MT">MT</option>
+                            <option value="NC">NC</option>
+                            <option value="ND">ND</option>
+                            <option value="NE">NE</option>
+                            <option value="NH">NH</option>
+                            <option value="NJ">NJ</option>
+                            <option value="NM">NM</option>
+                            <option value="NV">NV</option>
+                            <option value="NY">NY</option>
+                            <option value="OH">OH</option>
+                            <option value="OK">OK</option>
+                            <option value="OR">OR</option>
+                            <option value="PA">PA</option>
+                            <option value="RI">RI</option>
+                            <option value="SC">SC</option>
+                            <option value="SD">SD</option>
+                            <option value="TN">TN</option>
+                            <option value="TX">TX</option>
+                            <option value="UT">UT</option>
+                            <option value="VA">VA</option>
+                            <option value="VT">VT</option>
+                            <option value="WA">WA</option>
+                            <option value="WI">WI</option>
+                            <option value="WV">WV</option>
+                            <option value="WY">WY</option>
+                        </select>
+                    </li>
+                    <li>
+                        <div class="field-title">Zip Code</div>
+                        <input class="screen-name no-uppercase" type="number" id="zip" placeholder="ZIP CODE" data-tap-alloweventbubble="true" />
+                    </li>
+               
+                     <li class="submissions">
+                        <!--button class="animated fadeIn next-btn partial-rounded dark-blue-tile font-interstate button" data-changeview="UserProfile">User Profile</button>
+                        <button class="animated fadeIn next-btn partial-rounded dark-blue-tile font-interstate button" data-changeview="ChangePassword">Change Password</button-->
+                        <button class="animated fadeIn green-general-button float-right light-text" style="padding: 5px 15px" data-tap="scn.views.redemptionAddress.submitButton">DONE</button>
+                    </li>
+
+                </ul>
+            </form>
+        </div>
+    </div>
+</div>

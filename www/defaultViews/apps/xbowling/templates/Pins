@@ -1,0 +1,27 @@
+<div class="pins-container" data-bind="attr: { 'data-tapenabled': scn.gameplay.isStrike($data) }" data-taporder="3">
+    <div class="ballRow first">
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 6)">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 7)">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 8)">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 9)">&nbsp;</div>
+    </div>
+    <div class="ballRow">
+        <div class="ballPlaceholder">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 3)">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 4)">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 5)">&nbsp;</div>
+    </div>
+    <div class="ballRow">
+        <div class="ballPlaceholder">&nbsp;</div>
+        <div class="ballPlaceholder">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 1)">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 2)">&nbsp;</div>
+    </div>
+    <div class="ballRow">
+        <div class="ballPlaceholder">&nbsp;</div>
+        <div class="ballPlaceholder">&nbsp;</div>
+        <div class="ballPlaceholder">&nbsp;</div>
+        <div data-bind="css: scn.gameplay.getThrowClass($data, 0)">&nbsp;</div>
+    </div>
+    <div class="frame-throw-number" data-bind="text: jQuery($element).parents('[data-pins-throw]:first').attr('data-pins-throw')"></div>
+</div>

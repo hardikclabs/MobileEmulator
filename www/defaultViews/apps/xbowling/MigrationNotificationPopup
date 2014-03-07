@@ -1,0 +1,40 @@
+<script type="text/javascript">
+    (function (migrationNotificationPopup) {
+        migrationNotificationPopup.load = function () {
+            var viewModel = scn.popup.getViewModel(this);
+
+            jQuery("#migration-notification-popup-credits", this).text(viewModel.creditBonus);
+
+            if (viewModel.creditBonusType === "top25") {
+                jQuery("#migration-notification-popup-message", this).text("Because you ranked in the top 25 leaderboard,");
+            } else {
+                jQuery("#migration-notification-popup-message", this).text("To get you started");
+            }
+        },
+
+        migrationNotificationPopup.close = function () {
+            scn.popup.hide(this);
+        }
+    }(window.scn.views.migrationNotificationPopup = window.scn.views.migrationNotificationPopup || {}));
+</script>
+<div id="popup" data-load="scn.views.migrationNotificationPopup.load">
+    <div id="popup-bg"></div>
+
+    <div class="popup-header"><div class="centered-container">
+        <span>Welcome Back!</span></div>
+    </div>
+
+    
+    <div class="popup-content no-text-transform light-text" style="padding: 0 25px">
+        <img src="xbowlingNewLogo-white-1000x225.png" width="400" />
+        <p class="centered" style="margin-top: -5px">Congratulations on updating to the new and improved XBowling! <span id="migration-notification-popup-message"></span> we have given you <span style="font-weight: bold;"><span id="migration-notification-popup-credits"></span> free credits</span>! Good luck!</p>
+        <div class="login-buttons">
+            <div class="button-container float-right">
+                <div class="animated fadeIn medium-button green-general-button" data-tap="scn.views.migrationNotificationPopup.close">
+                    <span>Get Started!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

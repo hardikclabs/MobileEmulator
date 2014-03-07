@@ -1,0 +1,38 @@
+<script type="text/javascript">
+(function (newsPopup) {
+    newsPopup.xbowlingNewsTap = function () {
+        var newsWindow = window.open("http://www.inxbowling.com/category/sport-and-life/", "_blank", "location=no");
+        scn.injectWindowLoadingMessage(newsWindow, "We are loading your personalized XBowling news...", "Sit Tight!");
+    },
+
+     newsPopup.industryNewsTap = function () {
+         alert("Check back soon for all your bowling industry news!", { title: "Coming Soon!" });
+     }
+}(window.scn.views.newsPopup = window.scn.views.newsPopup || {}));
+</script>
+<div id="popup">
+    <div class="popup-header"><div class="centered-container">
+        <span id="handicap-info-popup-title">News</span></div>
+    </div>
+    <div id="dashboard-content" style="margin-top: 75px;">
+    <div style="margin: auto; float: none; width: 250px; margin-top: 50px; width: 225px">
+    	    <div style="float: left;">
+                <a data-tap="scn.views.newsPopup.xbowlingNewsTap" data-tap-alloweventbubble="true">
+                    <div class="tiles gold-tile" style="width: 85px; height: 76px">
+                        <div class="tile-icon-container"><div class="tile-icon"><img src="icon-xbowling.png" /></div></div>
+                        <div class="tile-title" style="margin-top: -8px;">XBowling<br />News</div>
+                    </div>
+                </a>
+            </div>
+    	    <div style="float: right;">
+                <a data-tap="scn.views.newsPopup.industryNewsTap" data-tap-alloweventbubble="true">
+                    <div class="tiles blue-tile" style="width: 85px; height: 76px">
+                        <div class="ribbon-coming-soon"><img src="ribbon-coming-soon.png" /></div>
+                        <div class="tile-icon-container"><div class="tile-icon"><img src="icon-industry-news.png" /></div></div>
+                        <div class="tile-title" style="margin-top: -8px;">Industry<br />News</div>
+                    </div>
+                </a>
+            </div>
+    </div>
+    </div>
+</div>

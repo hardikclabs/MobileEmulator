@@ -1,0 +1,44 @@
+<span data-template="Header"></span> 
+
+
+    <div id="content" class="font-interstate">
+            <div class="animated fadeInRight screen-title">Pre-Bowl Setup</div>
+            <ul class="animated fadeIn pre-bowl-checklist">
+                <li>
+                    <p>1. Enter Challenges to Win Points</p>
+                   <div class="checked"><img src="checklist.png" /></div>
+                </li>
+                <li>
+                    <p>2. Enter Contests To Win cash and Prizes</p>
+                   <div class="checked"><img src="checklist.png" /></div>
+                </li>
+                <li class="last-child">
+                    <p>3. Enter Head to Head Matches</p>
+                   <div class="checked"><img src="checklist.png" /></div>
+                </li>
+
+                <div class="button-container">
+                    <div class="animated fadeIn done-btn partial-rounded orange-tile button">Skip</div>
+                    <div class="animated fadeIn done-btn partial-rounded orange-tile button">Done</div>
+                </div>
+            
+            </ul>
+        
+    </div>
+
+ <div id="footer" class="pre-bowl-footer font-interstate">
+     <ul id="breadcrumbs" class="breadcrumb-container">
+         <li><span>
+             <div class="breadcrumb-number">1</div>
+             <div class="breadcrumb-name">location</div>
+         </span></li>
+         <li><span>
+             <div class="breadcrumb-number">2</div>
+             <div class="breadcrumb-name">lane</div>
+         </span></li>
+         <li><span class="current">
+             <div class="breadcrumb-number">3</div>
+             <div class="breadcrumb-name">setup</div>
+         </span></li>
+     </ul>
+ </div>

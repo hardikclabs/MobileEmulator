@@ -1,0 +1,292 @@
+<script>
+    (function (liveScores) {
+        LIVE_SCORES_TIME_RANGE = 90,
+        liveScores.LIVE_SCORES_TABS = {
+            LANES: 1,
+            SCORES: 2
+        },
+
+        liveScores.viewModel = function () {
+            var viewParams = scn.viewEngine.getViewIdFromHash();
+
+            this.currentTab = ko.observable(liveScores.LIVE_SCORES_TABS.LANES);
+            this.lane = ko.observable(0);
+            this.venueId = ko.observable(decodeURIComponent(viewParams.params.venue));
+            this.venueName = ko.observable(decodeURIComponent(viewParams.params.venueName));
+            this.games = ko.mapping.fromJS([]);
+            this.gamesSummary = ko.mapping.fromJS([]);
+            this.gamesSummaryLoaded = ko.observable();
+        },
+
+        liveScores.changeBowlingCenter = function () {
+            scn.popup.show("SelectCenterPopup", {
+                viewModel: {
+                    mode: "livescores"
+                },
+                callback: function (data) {
+                    if (data) {
+                        scn.viewEngine.changeView("LiveScores?venue="
+                            + data.selectedVenue()
+                            + "&venueName=" + encodeURIComponent(data.selectedVenueName()));
+                    }
+                }
+            });
+        },
+
+        liveScores.load = function () {
+            var tabContentContainers = jQuery(".tab-content-container .live-scores-scroll", jQuery(this));
+            for (var i = 0; i < tabContentContainers.length; i++) {
+                var tabContentContainer = jQuery(tabContentContainers[i]);
+                //var tab = tabContentContainer.parent();
+
+                //tabContentContainer.height(tab.innerHeight());
+
+                // challenge list scroller
+                var elmForScroll = tabContentContainer.get(0);
+                var listScroll = new iScroll(elmForScroll, {
+                    snap: false,
+                    momentum: true,
+                    hScroll: false,
+                    hScrollbar: false,
+                    vScroll: true,
+                    vScrollbar: false
+                });
+                scn.viewEngine.registerViewDestructor(function () {
+                    if (elmForScroll.iScroll) {
+                        elmForScroll.iScroll.destroy();
+                        elmForScroll.iScroll = null;
+                    }
+                });
+            }
+        },
+
+        liveScores.loadSummary = function () {
+            var viewModel = ko.dataFor(this);
+            if (viewModel == null) {
+                var elmToBind = jQuery(this).parents("#live-scores-wrapper:first");
+                viewModel = new liveScores.viewModel();
+                ko.applyBindings(viewModel, elmToBind.get(0));
+            }
+
+            scn.showLoading();
+
+            var that = this;
+
+            scn.ajax({
+                url: scn.apiAddress + "venue/" + viewModel.venueId() + "/summary",
+                type: "GET",
+                data: scn.gameplay.getGameDateTimeWindow(LIVE_SCORES_TIME_RANGE),
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    // game data
+                    ko.mapping.fromJS(data, viewModel.gamesSummary);
+
+                    var scrollElm = jQuery(".live-scores-scroll:first", that).get(0);
+                    if (scrollElm && scrollElm.iScroll) {
+                        scrollElm.iScroll.refresh();
+                    }
+
+                    viewModel.gamesSummaryLoaded(true);
+                },
+                error: function () {
+                    viewModel.gamesSummaryLoaded(true);
+                    alert("An error occurred loading live scores!  Please try again later.", {
+                        callback: function () {
+                            scn.viewEngine.changeView("new-1-MainDashboard");
+                        }
+                    });
+                }
+            });
+
+            // set update interval
+            scn.viewEngine.registerInterval(
+                "inGameScoreUpdate",
+                setInterval(liveScores.update, 7000));
+
+            viewModel.lane.subscribe(function (newLane) {
+                viewModel.games.removeAll();
+                liveScores.update(true);
+            });
+        },
+
+        liveScores.update = function (showLoading) {
+            if (liveScores.loadingScoreUpdate)
+                return;
+
+            liveScores.loadingScoreUpdate = true;
+
+            var scoresElm = jQuery("#live-scores-wrapper");
+            var viewModel = ko.dataFor(scoresElm.get(0));
+
+            var laneTab = jQuery("#live-scores-lane-tab", scoresElm);
+
+            if (!viewModel || viewModel.lane() < 1) {
+                liveScores.loadingScoreUpdate = false;
+                laneTab.addClass("hidden");
+                return;
+            }
+
+            var scoringContent = jQuery("#live-scores-scoring-content", scoresElm);
+
+            if (showLoading) {
+                scn.showLoading();
+            }
+
+            var laneBeforeAjax = viewModel.lane();
+
+            scn.ajax({
+                url: scn.apiAddress + "venue/" + viewModel.venueId() + "/lane/" + viewModel.lane(),
+                type: "GET",
+                data: scn.gameplay.getGameDateTimeWindow(LIVE_SCORES_TIME_RANGE),
+                dataType: "json",
+                success: function (data) {
+                    if (showLoading) {
+                        scn.hideLoading();
+                    }
+
+                    liveScores.loadingScoreUpdate = false;
+
+                    if (laneBeforeAjax != viewModel.lane()) {
+                        // user changed which lane is selected, disregard this data
+                        return;
+                    }
+
+                    ko.mapping.fromJS(data,
+                        {
+                            key: function (item) {
+                                return ko.utils.unwrapObservable(item.rowKey);
+                            }
+                        },
+                        viewModel.games);
+
+                    laneTab.addClass("animated ").removeClass("hidden");
+
+                    var scoringContentTabContainer = jQuery(".tab-content-container .live-scores-scroll:first", scoringContent);
+                    var frameSection = scoringContentTabContainer.children().first();
+                    frameSection.height(75 * viewModel.games().length);
+
+                    var scoringContentScroll = scoringContentTabContainer.get(0);
+                    if (scoringContentScroll && scoringContentScroll.iScroll) {
+                        scoringContentScroll.iScroll.refresh();
+                    }
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+                    liveScores.loadingScoreUpdate = false;
+                }
+            });
+        },
+
+        liveScores.getFrameNumber = function (squareNumber) {
+            return squareNumber == 21 ? 10 : Math.ceil(squareNumber / 2);
+        },
+
+        liveScores.showLane = function () {
+            // selected lane view model
+            var laneViewModel = ko.dataFor(this.element);
+
+            // whole page view model
+            var scoresElm = jQuery("#live-scores-wrapper");
+            var viewModel = ko.dataFor(scoresElm.get(0));
+
+            viewModel.currentTab(liveScores.LIVE_SCORES_TABS.SCORES);
+            viewModel.lane(laneViewModel.laneNumber());
+        },
+
+        liveScores.showLaneTab = function () {
+            var viewModel = ko.dataFor(this.element);
+            viewModel.currentTab(liveScores.LIVE_SCORES_TABS.LANES);
+        },
+
+        liveScores.showScoringTab = function () {
+            var viewModel = ko.dataFor(this.element);
+            viewModel.currentTab(liveScores.LIVE_SCORES_TABS.SCORES);
+            liveScores.update(true);
+        }
+
+
+    }(window.scn.views.liveScores = window.scn.views.liveScores || {}));
+</script>
+<div id="animated-bg"></div>
+<div data-template="Header"></div>
+
+<div id="live-scores-wrapper" data-load="scn.views.liveScores.load">
+    <div id="in-game-screen-container">
+        <div id="tabs">
+            <ul class="tabs" id="tabsnav">
+                <li>
+                    <a class="menu-internal live-scores-tab" data-bind="tap: scn.views.liveScores.showLaneTab">
+                        <div class="user-tab-container">
+                            <div class="tab-title">
+                                <div class="tab-title-d">CENTER</div>
+                                <div class="tab-title-e" data-bind="text: venueName"></div>
+                            </div>
+                        </div>
+                    </a>
+                </li>
+                <li id="live-scores-lane-tab" class="hidden" data-bind="tap: scn.views.liveScores.showScoringTab">
+                    <a class="menu-internal lane-tab">
+                        <div class="user-tab-container">
+                            <div class="lane-info">
+                                <span class="tab-title-f">Lane</span>
+                                <span class="tab-title-g" data-bind="text: lane"></span>
+                            </div>
+                        </div>
+                    </a>
+                </li>
+            </ul>
+            <div id="live-scores-lane-content" class="blue-tab live-scores-tab-bg" data-bind="visible: currentTab() == scn.views.liveScores.LIVE_SCORES_TABS.LANES">
+                <!---- USER TAB ---->
+                <div class="light-text centered" data-bind="visible: !gamesSummaryLoaded()">Loading Live Scores.  Please wait...</div>
+                <div class="light-text centered" data-bind="visible: gamesSummaryLoaded() && gamesSummary().length == 0">No Active Lanes at <span data-bind="    text: venueName"></span>!</div>
+                <div class="tab-content-container" data-load="scn.views.liveScores.loadSummary">
+                    
+                    <div class="change-center-container">
+                        <div class="button-container">
+                            <div class="change-center-button green-general-button" data-tap="scn.views.liveScores.changeBowlingCenter">
+                                <span>Change Bowling Center</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="live-scores-scroll" style="clear: both; height: 125px;">
+                        <ul class="full-list" data-bind="foreach: gamesSummary">
+
+                            <li data-bind="tap: scn.views.liveScores.showLane" data-tap-alloweventbubble="true" class="live-scores-list">
+                                <a class="menu-internal">
+
+
+                                    <ul>
+
+                                        <li class="opponent-username live-score-width-adjust">
+                                            <div class="xb-logo-container">
+                                                <div class="xb-logo">
+                                                    <img src="logo-xbowling-small.png" />
+                                                </div>
+                                            </div>
+                                            <div class="lane-no">Lane <span data-bind="text: laneNumber"></span></div>
+                                            <div class="player-no">Players: <span data-bind="text: numberPlayers"></span></div>
+                                            <div class="tap-here">tap here to select lane</div>
+                                        </li>
+                                    </ul>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <!---- END USER TAB ---->
+            <div id="live-scores-scoring-content" class="grey-tab live-scores-lane-selected-bg" data-bind="log: 'here', visible: currentTab() == scn.views.liveScores.LIVE_SCORES_TABS.SCORES">
+                <div class="tab-content-container">
+                    <div class="live-scores-scroll" style="height: 150px;">
+                        <div class="frame-section" data-scores-show-name="true" data-bind="template: { name: 'Scores', foreach: games }">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div data-template="Footer"></div>

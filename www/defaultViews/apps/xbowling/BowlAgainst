@@ -1,0 +1,292 @@
+<script type="text/javascript">
+    (function (bowlAgainst) {
+        bowlAgainst.loadFriends = function () {
+            jQuery("#tab-friends").addClass("active");
+            jQuery("#tab-all").removeClass("active");
+            jQuery("#search-form > input").val("");
+            jQuery("#selected-challenger").addClass("hidden");
+            load("competition/friends");
+        },
+
+        bowlAgainst.loadAll = function () {
+            jQuery("#tab-friends").removeClass("active");
+            jQuery("#tab-all").addClass("active");
+            jQuery("#search-form > input").val("");
+            jQuery("#selected-challenger").addClass("hidden");
+            load("competition");
+        }
+
+        bowlAgainst.viewModel = {
+            competitions: ko.observableArray(),
+            search: ko.observable()
+        },
+
+        bowlAgainst.mainScroll = null,
+
+        lastEndpoint = null,
+        load = function (endpoint, searchTerm) {
+            scn.showLoading();
+
+            lastEndpoint = endpoint;
+
+            var elm = jQuery("#competition-list-data");
+            var content = jQuery("#content");
+
+            var data = {};
+            if (searchTerm && searchTerm.trim() != "") {
+                data.search = searchTerm.trim();
+                endpoint += "/search";
+            }
+
+            scn.ajax({
+                url: scn.apiAddress + endpoint,
+                type: "GET",
+                data: data,
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    bowlAgainst.viewModel.competitions.removeAll();
+
+                    for (var i = 0; i < data.length; i++) {
+                        bowlAgainst.viewModel.competitions.push(ko.mapping.fromJS(data[i]));
+                    }
+
+                    if (data.length == 0) {
+                        jQuery("#no-posted-games-message").show();
+                    } else {
+                        jQuery("#no-posted-games-message").hide();
+                    }
+
+                    if (!content.attr("data-bound")) {
+                        ko.applyBindings(bowlAgainst.viewModel, elm.get(0));
+                        content.attr("data-bound", true);
+
+                        ko.applyBindings(bowlAgainst.viewModel, jQuery("#search-form").get(0));
+                        ko.computed(function () {
+                            var term = this.search();
+                            load(lastEndpoint, term);
+                        }, bowlAgainst.viewModel).extend({ throttle: 750 });
+                    }
+
+                    var liList = jQuery("#competition-list-data > ul > li");
+                    liList.removeClass("hidden");
+                    var firstLi = jQuery(liList[0]);
+                    var ul = firstLi.parent();
+                    ul.height((firstLi.outerHeight() + 50) * liList.length);
+                    bowlAgainst.mainScroll.refresh();
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                }
+            });
+
+            // set height for iscroll
+            var newHeight = scn.viewEngine.windowHeight - elm.position().top;
+            elm.height(newHeight);
+
+            // wire up iscroll
+            bowlAgainst.mainScroll = new iScroll(elm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+            scn.viewEngine.registerViewDestructor(function () {
+                if (bowlAgainst.mainScroll) {
+                    bowlAgainst.mainScroll.destroy();
+                    bowlAgainst.mainScroll = null;
+                }
+            });
+        },
+
+        bowlAgainst.highlight = function () {
+            var elm = jQuery(this.element);
+            elm.siblings(".selected").removeClass("selected");
+            elm.addClass("selected");
+
+            var vm = ko.dataFor(this.element);
+            var selectedChallenger = jQuery("#selected-challenger");
+            selectedChallenger.removeClass("hidden bounceIn");
+            setTimeout(function () {
+                selectedChallenger.addClass("bounceIn");
+            }, 10);
+
+            ko.applyBindings(vm, selectedChallenger.get(0));
+
+        },
+
+        bowlAgainst.processing = false,
+
+        bowlAgainst.enter = function () {
+            if (bowlAgainst.processing) {
+                return;
+            }
+
+            bowlAgainst.processing = true;
+
+            var vm = ko.dataFor(this.element);
+            var viewParams = scn.viewEngine.getViewIdFromHash();
+
+            scn.showLoading();
+
+            var competitionGame = {
+                competitionId: vm.id,
+                gameId: viewParams.params.game
+            };
+
+            scn.ajax({
+                url: scn.apiAddress + "competition/game",
+                type: "POST",
+                data: competitionGame,
+                dataType: "json",
+                success: function (data) {
+                    if (vm.creditWager > 0) {
+                        // subtract credits visually
+                        scn.views.header.increaseCredits(-vm.creditWager, function () {
+                            // go to ingame screen
+                            scn.viewEngine.changeView("HeadToHeadInGameScreen?laneCheckout=" + viewParams.params.laneCheckout + "&game=" + viewParams.params.game + "&competition=" + vm.id() + "&venueName=" + viewParams.params.venueName);
+                        });
+                    } else {
+                        scn.viewEngine.changeView("HeadToHeadInGameScreen?laneCheckout=" + viewParams.params.laneCheckout + "&game=" + viewParams.params.game + "&competition=" + vm.id() + "&venueName=" + viewParams.params.venueName);
+                    }
+                },
+                error: function (jqXhr) {
+                    scn.hideLoading();
+                    bowlAgainst.processing = false;
+
+                    if (jqXhr.status == 409) {
+                        alert("You are already entered into that Head to Head matchup!");
+                    } else if (jqXhr.status == 402) {
+                        if (confirm("You do not have enough credits to enter into that Head to Head matchup!  Do you want to purchase more credits now?")) {
+                            var hashData = scn.viewEngine.getViewIdStringFromHash(function (paramName) {
+                                return paramName != "return";
+                            });
+                            scn.viewEngine.changeView("BuyMoreCredits?return=BowlAgainst&" + hashData);
+                        }
+                    } else {
+                        bowlAgainst.loadAll();
+                        alert("An error occurred while entering you into the Head to Head matchup.  Please try again.");
+                    }
+                }
+            });
+        }
+    }(window.scn.views.bowlAgainst = window.scn.views.bowlAgainst || {}));
+
+</script>
+
+<span data-template="Header"></span>
+
+
+<div id="content" class="font-interstate" data-load="scn.views.bowlAgainst.loadFriends">
+    <div class="animated fadeInRight screen-title">Choose a Challenger</div>
+
+    <div id="split-screen">
+        <div class="challenger-container">
+            <div class="tabs">
+                <ul>
+                    <li class="partial-rounded dark-blue-tile-2"><a id="tab-friends" href="javascript:void(0)" data-tap="scn.views.bowlAgainst.loadFriends" class="active">Xbowling Friends</a></li>
+                    <li class="partial-rounded dark-blue-tile-2"><a id="tab-all" href="javascript:void(0)" data-tap="scn.views.bowlAgainst.loadAll">All</a></li>
+                </ul>
+            </div>
+
+            <div class="pane">
+                <div class="tab_content active">
+                    <!-----SEARCH SECTION-------------------------------------------->
+                    <div class="search-section">
+                        <ul>
+                            <li>
+                                <form id="search-form">
+                                    <input type="text" name="query" placeholder="Search Bowler" data-bind="value: search, valueUpdate: 'afterkeydown'" />
+                                </form>
+                            </li>
+                            <li class="sort-button hidden">
+                                <button class="next-btn partial-rounded dark-blue-tile font-interstate button" type="submit">Sort</button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-----LIST OF CHALLENGERS------------------------------------->
+                    <div class="bowlers-list">
+                        <!-----CHART TITLES-------------------------------------------->
+                        <ul class="chart-header">
+                            <li style="width: 55%;">Bowler<br />Username</li>
+                            <li style="width: 27%;">Buy<br />in</li>
+                            <li>Games<br />Left</li>
+                        </ul>
+                    </div>
+                    <div class="bowlers-list" id="competition-list-data">
+                        <div id="no-posted-games-message">
+                            <p>No posted games found</p>
+                        </div>
+                        <ul data-bind="foreach: competitions">
+                            <!--///////////////////   CHALLENGER INFORMATION   ///////////////------->
+                            <li class="challenger-info hidden" data-bind="tap: scn.views.bowlAgainst.highlight">
+                                <ul>
+                                    <!-----BOX 1: Player Name and score and reward info------->
+                                    <li class="challenger-name-container">
+                                        <div class="challenger-name" data-bind="text: creatorUserName"></div>
+                                        <div class="challenger-score">Score: <span data-bind="text: score"></span></div>
+                                        <div class="reward">Reward: <span data-bind="text: scn.addCommas(payout())"></span>pts</div>
+                                    </li>
+
+                                    <!-----BOX 3: Buy in amount Information-------------------->
+                                    <li class="buy-in">
+                                        <div class="enter-text"><span data-bind="text: creditWager"></span></div>
+                                        <div class="challenge-coin">
+                                            <img src="challenge-coin.png">
+                                        </div>
+                                    </li>
+
+                                    <!-----BOX 4: Time Limit informaiton----------------------->
+                                    <li class="time-limit" data-bind="text: playersRemaining"></li>
+                                </ul>
+                            </li>
+            
+                            <!-------///////////   END CHALLENGER INFORMATION   ///////////------>
+
+                        </ul>
+                    </div>                    
+                </div>
+                <!-----INSTRUCTIONS
+                <div class="instructions">
+                    Tap a game to playagainst the players for points
+                </div>-------------------------------------------->
+
+                <!-----INSTRUCTIONS-------------------------------------------->
+                <div class="instructions">
+                    Tap a game to playagainst the players for points
+                </div>
+            </div>
+
+        </div>
+        <div class="your-challenger-container animated bounceIn hidden" id="selected-challenger">
+            <ul>
+                <li class="title">Your Challenger</li>
+                <li class="challenger-name" data-bind="text: creatorUserName"></li>
+                <li class="challenger-score">Game Score: <span data-bind="text: score"></span></li>
+                <li class="challenger-game-players">Game Players: <span data-bind="text: playersEntered"></span></li>
+                <!--<li class="reward">reward:<span>5,000</span>PTS</li>-->
+                <li class="taunt">Can You beat them?</li>
+            </ul>
+
+            <div class="enter-container partial-rounded orange-tile" data-bind="tap: scn.views.bowlAgainst.enter">
+                <div class="enter-text">Enter for <span data-bind="text: creditWager"></span></div>
+                <div class="challenge-coin">
+                    <img src="challenge-coin.png">
+                </div>
+            </div>
+            <div class="rewards pre-glow pulsating-glow ">Rewards<br />
+                <span><span data-bind="text: scn.addCommas(payout())"></span> pts!</span></div>
+        </div>
+
+
+
+    </div>
+
+    <div id="footer" class="pre-bowl-footer font-interstate">
+        <div class="animated fadeIn next-btn partial-rounded tile dark-blue-tile">skip</div>
+    </div>
+ </div>

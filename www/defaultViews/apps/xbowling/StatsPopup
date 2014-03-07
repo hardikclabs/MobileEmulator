@@ -1,0 +1,141 @@
+<script type="text/javascript">
+    (function (statsPopup) {
+        statsPopup.load = function () {
+            var elm = jQuery(this);
+
+            scn.showLoading();
+            
+            scn.ajax({
+                url: scn.apiAddress + "bowlingstatistic",
+                type: "GET",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+
+                    var viewModel = ko.mapping.fromJS(data);
+                    ko.applyBindings(viewModel, elm.get(0));
+
+                    var contentScroll = jQuery("#stats-content", elm);
+                    var mainScroll = new iScroll(contentScroll.get(0), {
+                        snap: false,
+                        momentum: true,
+                        hScroll: false,
+                        hScrollbar: false,
+                        vScroll: true,
+                        vScrollbar: false
+                    });
+                    scn.popup.registerPopupDestructor(elm, function () {
+                        if (mainScroll) {
+                            mainScroll.destroy();
+                            mainScroll = null;
+                        }
+                    });
+                    mainScroll.refresh();
+                },
+                error: function () {
+                    scn.hideLoading();
+
+                    jQuery("#stats-loading-message", elm).text("An error occurred loading your statistics.  Please try again later.");
+                }
+            });
+
+        },
+
+        statsPopup.viewLeaderboard = function () {
+            scn.popup.show("LeaderboardPopup", {
+                viewModel: {
+                    leaderboard: "points",
+                    allowSelectLeaderboard: false
+                }
+            });
+        },
+
+        statsPopup.getRanking = function (rank) {
+            return rank > 0 ? ('#' + rank) : "N/A";
+        }
+}(window.scn.views.statsPopup = window.scn.views.statsPopup || {}));
+</script>
+<div id="stats" data-load="scn.views.statsPopup.load" style="height: 240px">
+    <div id="popup">
+        <div class="popup-header">
+            <div class="centered-container">
+                <span>My Stats</span>
+            </div>
+        </div>
+ 
+        <div id="stats-loading-message" class="centered light-text" style="margin: 50px 0;" data-bind="visible: false">
+            Loading your stats. Please wait...
+        </div>
+
+        <div class="content hidden" id="stats-content" data-bind="showOnBind: true" style="height: 225px; width:100%">
+            <div id="stats-content-scroller" style="height: 600px">
+                <div class="stats-username">
+                    <!-- UserProfile.PictureFile.FileUrl -->
+                    <img src="logo-xbowling-small.png" data-bind="profileImage: userProfile.pictureFile.fileUrl ? userProfile.pictureFile.fileUrl() : null" class="profile-picture" />
+                    <div class="light-text" data-bind="text: userProfile.screenName">&nbsp;</div>
+                </div>
+                <div class="your-ranking-container">
+                    <div class="your-ranking">Your Ranking: <span data-bind="text: scn.views.statsPopup.getRanking(rank())">&nbsp;</span>
+                            <button data-tap="scn.views.statsPopup.viewLeaderboard" class="orange-button orange-general-button light-text" style="margin-left: 10px; border-radius: 5px; padding: 5px; font-weight: bold;">VIEW LEADERBOARD</button>
+                        <br />(All Time Points)
+                    </div>
+                </div>
+                <div class="stats-container">
+                    <table>
+                        <tr>
+                            <td>Average Score</td>
+                            <td data-bind="text: averageScore"></td>
+                        </tr>
+                        <tr>
+                            <td>Handicap</td>
+                            <td data-bind="text: handicap"></td>
+                        </tr>
+                        <tr class="no-border">
+                            <td class="new-section">Challenges</td>
+                        </tr>
+                        <tr>
+                            <td class="sub">Entered</td>
+                            <td data-bind="text: challengesEntered"></td>
+                        </tr>
+                        <tr>
+                            <td class="sub">Won</td>
+                            <td data-bind="text: challengesWon"></td>
+                        </tr>
+                        <tr>
+                            <td class="sub">Winning Percentage</td>
+                            <td data-bind="text: (challengesEntered() > 0 ? ((challengesWon() / challengesEntered()) * 100).toPrecision(3) : 0) + '%'"></td>
+                        </tr>
+                        <tr>
+                            <td class="new-section">Head 2 Head</td>
+                        </tr>
+                        <tr>
+                            <td class="sub">Entered</td>
+                            <td data-bind="text: featuredEntered"></td>
+                        </tr>
+                        <tr>
+                            <td class="sub">Won</td>
+                            <td data-bind="text: featuredWon"></td>
+                        </tr>
+                        <tr>
+                            <td class="sub">Winning Percentage</td>
+                            <td data-bind="text: (featuredEntered() > 0 ? ((featuredWon() / featuredEntered()) * 100).toPrecision(3) : 0) + '%'"></td>
+                        </tr>
+                        <tr>
+                            <td class="new-section">Total XBowling<br />Games Played</td>
+                            <td data-bind="text: totalGamesPlayed"></td>
+                        </tr>
+                        <tr>
+                            <td>Highest Score Bowled</td>
+                            <td data-bind="text: highestScore"></td>
+                        </tr>
+                        <tr>
+                            <td>Total Points Won</td>
+                            <td data-bind="text: scn.addCommas(totalPointsWon())"></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

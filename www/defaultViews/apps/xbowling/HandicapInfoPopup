@@ -1,0 +1,97 @@
+<script type="text/javascript">
+    (function (handicapInfoPopup) {
+        handicapInfoPopup.close = function () {
+            scn.popup.hide(this);
+        },
+
+        handicapInfoPopup.show = function () {
+            var popup = jQuery(this).parents("#popup");
+            var info = jQuery("#handicap-info-popup-info", popup)
+                .removeClass("hidden");
+            jQuery("#handicap-info-popup-question", popup)
+                .addClass("hidden");
+            jQuery("#handicap-info-popup-title", popup)
+                .text("Handicap Info");
+
+            info.height(225);
+            jQuery(info.children().get(0)).height(600);
+
+            var iscr = new iScroll(info.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+
+            scn.popup.registerPopupDestructor(popup, function () {
+                if (iscr) {
+                    iscr.destroy();
+                    iscr = null;
+                }
+            });
+        }
+    }(window.scn.views.handicapInfoPopup = window.scn.views.handicapInfoPopup || {}));
+</script>
+<div id="popup">
+    <div class="popup-header"><div class="centered-container">
+        <span id="handicap-info-popup-title">Hey There!</span></div>
+    </div>
+    <div class="form-container" id="handicap-info-popup-question">
+        <div class="message-container">
+            <p style="font-size: 115%">Are you familiar with handicap scoring?  Did you know that with handicap scoring, a novice has a realistic chance to beat a professional?</p>
+        </div>
+        <div class="all-button-container">
+            <div class="button-container" data-tap="scn.views.handicapInfoPopup.close">
+                <div class="medium-button blue-general-button">
+                    <span class="two-line-text">Continue<br />Game</span>
+                </div>
+            </div>
+
+            <div class="button-container">
+                <div class="medium-button green-general-button no-margin" data-tap="scn.views.handicapInfoPopup.show">
+                    <span class="two-line-text">Learn<br />More</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hidden light-text" id="handicap-info-popup-info" style="margin-top: 15px; padding: 0 5px;">
+        <div id="handicap-info-popup-info-scroll">
+            <p>XBolwing uses the handicap system to determine winners of Head to Head Challenges in line with the rules of the USBC, the official governing body of the sport of bowling in the US.   Each player's handicap is determined by the following formula:  (210 - Player's Average) X 90%.  If the organizer/host of a Live Head to Head Challenge wants to set up a game to be scored without handicaps, called "Scratch" game.</p>
+            <p>With XBowling, we use the player's XBowling Average to determine the handicap and a person's average is determined after first 3 XBowled games.  Until a new XBowler plays 3 games, his average is not established and his handicap is shown as zero.</p>
+            <p>For scoring a bowling game between players with different averages/handicaps, one would add each person's handicap to their score (called "gross" or "raw" score) to get their handicapped scores - the highest handicapped score wins.</p>
+            <p>Please see example below:</p>
+            <table class="handicap-table" cellspacing="0">
+                <tr>
+                    <th style="width: 20%">Player</th>
+                    <th>Average</th>
+                    <th>Handicap</th>
+                    <th>Raw Score</th>
+                    <th>Handicap Score</th>
+                </tr>
+                <tr>
+                    <td>XBowler 1</td>
+                    <td>180</td>
+                    <td>27</td>
+                    <td>175</td>
+                    <td>202</td>
+                    <td style="color: red; font-weight: bold;">Loser</td>
+                </tr>
+                <tr>
+                    <td>XBowler 2</td>
+                    <td>130</td>
+                    <td>72</td>
+                    <td>132</td>
+                    <td>204</td>
+                    <td style="color: green; font-weight: bold;">Winner</td>
+                </tr>
+            </table>
+            <br />
+            <div>
+                Basis Score: 210<br />
+                % of Basis Score: 90%
+            </div>
+        </div>
+    </div>
+</div>

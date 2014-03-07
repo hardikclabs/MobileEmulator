@@ -1,0 +1,101 @@
+<script type="text/javascript">
+    (function (joinGameInfoPopup) {
+        joinGameInfoPopup.load = function () {
+            var elm = jQuery(this);
+
+            var scrollElm = jQuery("#challenge-popup-all", this);
+            scrollElm.height(scn.popup.getHeight(elm));
+
+            var viewModel = scn.popup.getViewModel(elm);
+            ko.applyBindings(viewModel, elm.get(0));
+
+            var mainScroll = new iScroll(scrollElm.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+
+            scn.popup.registerPopupDestructor(elm, function () {
+                if (mainScroll) {
+                    mainScroll.destroy();
+                    mainScroll = null;
+                }
+            });
+        }
+    }(window.scn.views.joinGameInfoPopup = window.scn.views.joinGameInfoPopup || {}));
+</script>
+<div id="popup" data-load="scn.views.joinGameInfoPopup.load" style="height: 275px">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span>Information</span>
+        </div>
+    </div>
+    <div id="challenge-popup-all">
+        <div class="all-challenge-container" >
+            <div class="single-challenge-container no-border challenge-detail">
+
+                <div class="icon challenge-icon"  style="background-size: contain; background-repeat: no-repeat;">
+                    &nbsp;
+                </div>
+                <!--img src="challenge-beat-your-avg.png" /-->
+
+                <div class="challenge-desc-container challenge-detail">
+                    <h1 class="title"  style="margin: 0;">Join Live Game</h1>
+                    <div class="container">
+                    <div class="cost"><h1 class="light-text challenge-cost-container" style="margin: 0;">Credits: <span >Varies</span> <span class="xcoin"><img src="xcoin.png" width="20" /></span></h1></div>
+                    <div class="rewards"><h2 class="light-text" style="margin: 0 0 0 20px;">Rewards <span  >Varies </span><span ></span><span class="pts"></span></h2></div>
+                    </div>
+                    <p>
+                       Join a game for 2 to 7 people to compete live against each other.  The more players, the higher the reward!  Pick one game to join from a list of available games and once the game's host, or organizer, confirms your acceptance to the game, you're in.  You can join 
+                        a game anytime before the organizer is done bowling their game.
+                        <br /><br />
+Potential wins based on following table: <br /><br />
+
+         <table border="0" width="350" style="color:rgba(255,255,255,0.7);text-align:left;">
+<tr>
+<th><u>Cost of Entry</u></th>
+<th><u>Potential Win</u></th>
+</tr>
+             <br />
+<tr>
+<td>(Credits)</td>
+<td>(Points)</td>
+</tr>
+<tr>
+<td>10</td>
+<td>700</td>
+</tr>
+<tr>
+</tr>
+<tr>
+<td>25</td>
+<td>1,800</td>
+</tr>
+<tr>
+<td>50</td>
+<td>3,700</td>
+</tr>
+<tr>
+<td>100</td>
+<td>7,600</td>
+</tr>
+<tr>
+<td>500</td>
+<td>40,000</td>
+</tr>
+<tr>
+<td>1,000</td>
+<td>90,000</td>
+</tr>
+</table>        
+<br /><br />
+<p>Your Potential Win equals the number in table above MULTIPLIED by the number of players in your game.</p>
+                    
+                     </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,384 @@
+<script type="text/javascript">
+    (function (selectCenterPopup) {
+        GEOLOCATION_SEARCH_DISTANCE_MILES = 25,
+
+        selectCenterPopup.viewModel = function () {
+            this.selectedVenue = ko.observable();
+            this.selectedVenueName = ko.observable();
+            this.laneNumber = ko.observable();
+            this.bowlerName = ko.observable();
+            this.countriesHash = ko.observableArray();
+            this.selectedCountryId = ko.observable();
+        },
+
+        selectCenterPopup.load = function () {
+            var elm = jQuery(this);
+
+            jQuery("form", elm).bind("submit", selectCenterPopup.submitLaneCheckout);
+
+            if (scn.isAppleDevice()) {
+                jQuery("#selectcenter-country, #selectcenter-state, #selectcenter-center", elm).bind("change", function () {
+                    jQuery(this).blur();
+                });
+            }
+
+            scn.showLoading();
+
+            var vm = new selectCenterPopup.viewModel();
+            if (!elm.data("bound")) {
+                ko.applyBindings(vm, elm.get(0));
+                elm.data("bound", true);
+            }
+
+
+            var countrySelect = jQuery("#selectcenter-country", elm);
+            var stateSelect = jQuery("#selectcenter-state", elm);
+
+            stateSelect.change(function () {
+                selectCenterPopup.changeState();
+            });
+
+            countrySelect.change(function () {
+                selectCenterPopup.changeCountry(this.value);
+            });
+
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "venue/locations",
+                data: {},
+                dataType: "json",
+                success: function (countries) {
+                    var hashCountries = {};
+
+                    for (var i = 0; i < countries.length; ++i) {
+                        hashCountries[countries[i].countryId] = countries[i]
+                    }
+
+                    vm.countriesHash(hashCountries);
+
+                    countrySelect.children().detach();
+
+                    for (var i = 0; i < countries.length; i++) {
+                        countrySelect.append(jQuery("<option />")
+                            .attr("value", countries[i].countryId)
+                            .text(countries[i].displayName));
+                    }
+                    
+                    navigator.geolocation.getCurrentPosition(
+                       function (position) {
+                           scn.ajax({
+                               type: "GET",
+                               url: scn.apiAddress + "venue/nearby",
+                               data: { latitude: position.coords.latitude, longitude: position.coords.longitude, distanceLimitMiles: GEOLOCATION_SEARCH_DISTANCE_MILES },
+                               dataType: "json",
+                               success: function (venues) {
+                                   scn.hideLoading();
+
+                                   var closestVenue = venues.length > 0 ? venues[0] : null;
+                                   
+                                   // select closest
+                                   if (closestVenue) {
+                                       for (var i = 0; i < countries.length; i++) {
+                                           if (countries[i].displayName == closestVenue.address.country.countryDisplayName) {
+                                               var selectedCountry = countries[i];
+
+                                               selectCenterPopup.changeCountry(selectedCountry.countryId);
+
+
+                                               var states = countries[i].states;
+                                               for (var j = 0; j < states.length; j++) {
+                                                   if (states[j].displayName == closestVenue.address.administrativeArea.longName) {
+                                                       stateSelect.val(states[j].displayName);
+                                                       selectCenterPopup.changeState(closestVenue);
+                                                       return;
+                                                   }
+                                               }
+                                           }
+                                       }
+                                   }
+
+                                   selectCenterPopup.changeCountry(countrySelect.val());
+                               },
+                               error: function () {
+                                   scn.hideLoading();
+                                   console.log("Error loading nearby venues from API.");
+                               }
+                           });
+                       },
+                       function () {
+                           scn.hideLoading();
+
+                           // swallow error with geo-location
+                           console.log("Error getting geolocation.");
+
+                           selectCenterPopup.changeCountry(countrySelect.val());
+                       });
+                },
+                error: function () {
+                    scn.hideLoading();
+
+                    alert("An error occurred loading Centers.  Please try again.");
+                }
+            });
+        },
+
+        selectCenterPopup.changeCountry = function (selectedCountry) {
+            var stateSelect = jQuery("#selectcenter-state");
+            var venueSelect = jQuery("#selectcenter-center");
+
+            var viewModel = ko.dataFor(jQuery('#select-center-popup-wrapper').get(0));
+            viewModel.selectedCountryId(selectedCountry);
+            var countriesHash = viewModel.countriesHash();
+
+            stateSelect.find('option').remove()
+
+            for (var j = 0; j < countriesHash[selectedCountry].states.length; j++) {
+                stateSelect.append(jQuery("<option />")
+                            .attr("value", countriesHash[selectedCountry].states[j].displayName)
+                            .text(countriesHash[selectedCountry].states[j].displayName));
+            }
+
+           selectCenterPopup.changeState();
+
+        },
+
+        selectCenterPopup.changeState = function (closestVenue) {
+            var countrySelect = jQuery("#selectcenter-country");
+            var stateSelect = jQuery("#selectcenter-state");
+            var venueSelect = jQuery("#selectcenter-center");
+            var viewModel = ko.dataFor(jQuery('#select-center-popup-wrapper').get(0));
+            var countriesHash = viewModel.countriesHash();
+
+            scn.ajax({
+                type: "GET",
+                url: scn.apiAddress + "venue/locations/" + countriesHash[viewModel.selectedCountryId()].displayName + "/" + stateSelect.val(),
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    venueSelect.children().detach();
+                    for (var i = 0; i < data.length; i++) {
+                        venueSelect.append(jQuery("<option />")
+                            .attr("value", data[i].id)
+                            .text(data[i].name));
+                    }
+
+                    if (closestVenue) {
+                        for (var i = 0; i < data.length; i++) {
+                            if (data[i].id == closestVenue.id) {
+                                venueSelect.val(data[i].id);
+                            }
+                        }
+                    }
+                },
+                error: function () {
+                    alert("An error occurred while loading centers.  Please try again.");
+                    return;
+                }
+            });
+        },
+
+        selectCenterPopup.showLaneAndName = function () {
+            var viewModel = scn.popup.getViewModel(this);
+            var data = ko.dataFor(this);
+
+            jQuery("select").blur();
+
+            var venueSelect = jQuery("#selectcenter-center");
+            data.selectedVenue(parseInt(venueSelect.val()));
+            data.selectedVenueName(jQuery("option:selected", venueSelect).text());
+
+            if (viewModel && viewModel.mode == "livescores") {
+                scn.popup.hide(this, data);
+            } else {
+                var lastName = localStorage.getItem("last-name");
+                if (lastName && lastName != null) {
+                    data.bowlerName(lastName);
+                }
+
+                jQuery('#geo-selection').addClass('hidden');
+                jQuery('#lane-and-name').removeClass('hidden');
+                jQuery("#select-center-popup-title").text("Enter your Lane");
+            }
+        },
+
+        selectCenterPopup.showGeoSelection = function() {
+            jQuery('#geo-selection').removeClass('hidden');
+            jQuery('#lane-and-name').addClass('hidden');
+            jQuery("#select-center-popup-title").text("Select a Center");
+        },
+
+
+        selectCenterPopup.validate = function() {
+            if (jQuery('#selectcenter-bowlername').val() === ''
+                || jQuery('#selectcenter-lane').val() === '') {
+                alert('Please enter bowler name and lane number');
+                return false;
+            }
+            return true;
+        },
+
+        selectCenterPopup.submitLaneCheckout = function() {
+            jQuery("input").blur();
+
+            if (!selectCenterPopup.validate()) {
+                return false;
+            }
+
+            scn.showLoading();
+
+            jQuery('#lane-and-name').addClass('hidden');
+            jQuery('#loading-message').removeClass('hidden');
+            jQuery("#select-center-popup-title").text("Sit Tight!");
+
+            // turn on confetti
+            //var confettiId = scn.confetti.render("#select-center-popup-wrapper > #popup");
+
+            viewModel = ko.dataFor(this);
+
+            localStorage.setItem("last-name", viewModel.bowlerName());
+
+            scn.ajax({
+                url: scn.apiAddress + "user/current",
+                type: "GET",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    var user = data == null ? 0 : data.id;
+
+                    if (user < 1) {
+                        scn.hideLoading();
+                        alert("An error occurred.  Please try again.");
+                        return;
+                    }
+                    //alert(viewModel.bowlerName());
+                    
+                    var model = {
+                        venue: { id: viewModel.selectedVenue() },
+                        bowlerName: viewModel.bowlerName(),
+                        laneNumber: viewModel.laneNumber(),
+                        user: { id: user }
+                    };
+
+                    scn.ajax({
+                        url: scn.apiAddress + "lanecheckout",
+                        type: "POST",
+                        data: model,
+                        dataType: "json",
+                        success: function (data) {
+                            scn.hideLoading();
+                            scn.viewEngine.changeView('new-2-InGameScreen?laneCheckout=' + data.id + "&bowlingGame=" + data.bowlingGame.id + "&venue=" + data.venue.id + "&venueName=" + data.venue.name);
+                        },
+                        error: function (jqXhr) {
+                            scn.hideLoading();
+                            if (jqXhr.status == 409) {
+                                alert("Another XBowler is already bowling on that lane with that name.  Did you type the wrong name?", {
+                                    title: "Uh oh!",
+                                    callback: function () {
+                                        //scn.confetti.stop(confettiId);
+                                        jQuery('#lane-and-name').removeClass('hidden');
+                                        jQuery('#loading-message').addClass('hidden');
+                                    }
+                                });
+                            } else {
+                                alert("It looks like something went wrong starting your game! Please try again later.", { title: "Uh oh!" });
+                            }
+                        }
+                    });
+                },
+                error: function () {
+                    scn.hideLoading();
+                    alert("An error occurred.  Please try again.");
+                }
+            });
+
+            return false;
+        },
+
+        selectCenterPopup.cancel = function () {
+            var button = jQuery(this);
+            scn.popup.hide(button);
+        }
+    }(window.scn.views.selectCenterPopup = window.scn.views.selectCenterPopup || {}));
+    </script>
+
+
+<div id="select-center-popup-wrapper" data-load="scn.views.selectCenterPopup.load">
+    <div id="popup" class="popup-bg">
+         <div class="popup-header"><div class="centered-container">
+           <span id="select-center-popup-title">Select a Center</span></div>
+        </div>
+        <div class="form-container">
+    <div class="popup-container" style="min-height: 200px">
+        <div id="geo-selection">
+            <div class="form-row">
+                <label class="form-label" for="selectcenter-country">Country:</label>
+                <select id="selectcenter-country" class="form-input signup" />
+            </div>
+            <div class="form-row">
+                <label class="form-label" for="selectcenter-state">State:</label>
+                <select id="selectcenter-state" class="form-input signup" />
+            </div>
+            <div class="form-row">
+                <label class="form-label" for="selectcenter-center">Center:</label>
+                <select id="selectcenter-center" class="form-input signup" />
+            </div>
+
+            <div class="form-row">
+                <!-- <div class="button-container">
+                        <div class="medium-button red-challenge-button " type="submit" data-tap="scn.views.selectCenterPopup.cancel">
+                            <span>Cancel</span>
+                        </div>
+                    </div>-->
+                <div class="button-container  float-right">
+                        <div class="medium-button blue-general-button no-margin" type="submit" data-tap="scn.views.selectCenterPopup.showLaneAndName">
+                            <span>Continue</span>
+                        </div>
+                    </div>
+            </div>
+        </div>
+
+        <div id="lane-and-name" class="hidden">
+            <form>
+                <div class="form-row">
+                    <label class="form-label" for="selectcenter-lane">Lane:</label>
+                    <input type="text" pattern="[0-9]*" size="10" data-bind="value: laneNumber" id="selectcenter-lane" class="form-input signup" title="Enter lane number" placeholder="Enter lane number" />
+                </div>
+
+                <div class="form-row">
+                    <label class="form-label" for="selectcenter-bowlername">Name:</label>
+                    <input type="text" size="10" id="selectcenter-bowlername" data-bind="value: bowlerName" class="form-input signup" placeholder="Enter bowling name"/>
+                    <p class="light-text" style="font-size: small; clear: both; padding-top: 10px;">Name above must match name <br />on lane monitor</p>
+                </div>
+                
+            <div class="form-row">
+                <br /><br />
+               <div class="button-container float-right ">
+                        <div class="medium-button  blue-general-button no-margin" data-tap="scn.views.selectCenterPopup.submitLaneCheckout">
+                            <span>Continue</span>
+                        </div>
+                    </div>
+                <div class="button-container float-right">
+                        <div class="medium-button red-general-button" type="submit" data-tap="scn.views.selectCenterPopup.showGeoSelection">
+                            <span>Back</span>
+                        </div>
+                
+                </div>
+                <button class="remove" type="submit">Continue</button>
+            </div>
+          </form>
+        </div>
+       
+        <div id="loading-message" class="hidden">
+            <div class="ready-to-bowl-container">
+                <div class="ready-to-bowl">
+                    YOU ARE ALMOST
+                    <span>READY TO XBOWL</span>
+                    <!--img src="text-ready-to-xbowl.png" /-->
+                </div>
+            </div>
+           
+        </div> 
+    </div>
+</div>
+    </div>
+</div>

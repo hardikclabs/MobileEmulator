@@ -1,0 +1,247 @@
+<script type="text/javascript">
+    (function (enterChallengeOpponentsPopup) {
+        enterChallengeOpponentsPopupViewModel = function (enteredAnyPosted) {
+            this.enteredAny = ko.observable(false);
+            this.enteredAnyPosted = ko.observable(enteredAnyPosted);
+        },
+
+        enterChallengeOpponentsPopup.load = function () {
+            var elm = jQuery(this);
+
+            var popupViewModel = scn.popup.getViewModel(elm);
+
+            ko.applyBindings(new enterChallengeOpponentsPopupViewModel(popupViewModel.anyPostedHeadToHeadEntered), elm.get(0));
+
+            jQuery("#enter-challenge-opponents-credits", elm).text(scn.views.footer.getCurrentCredits());
+
+            var scroller = jQuery("#enter-challenge-popup-opponents-scroller", elm);
+            scroller.height(scn.popup.getHeight(elm) - 76);
+            var is = jQuery(scroller.children(":first")).height(325);
+            var scroll = new iScroll(scroller.get(0), {
+                snap: false,
+                momentum: true,
+                hScroll: false,
+                hScrollbar: false,
+                vScroll: true,
+                vScrollbar: false
+            });
+
+            scn.popup.registerPopupDestructor(elm, function () {
+                if (scroll) {
+                    scroll.destroy();
+                }
+            });
+
+            if (popupViewModel.inGameScreenViewModel.liveCompetitionId() > 0) {
+                jQuery("#enter-challenge-opponents-popup-live-enter", elm).addClass("hidden");
+                jQuery("#enter-challenge-opponents-popup-live-entered", elm).removeClass("hidden");
+                jQuery("#enter-challenge-opponents-popup-join-enter", elm).addClass("hidden");
+                jQuery("#enter-challenge-opponents-popup-join-entered", elm).removeClass("hidden");
+            }
+        },
+
+        enterChallengeOpponentsPopup.backToChallenges = function () {
+            var elm = jQuery(this);
+
+            var popupViewModel = scn.popup.getViewModel(elm);
+            /*scn.popup.show("EnterChallengePopup", {
+                viewModel: popupViewModel
+            });*/
+
+            var elmViewModel = ko.dataFor(elm.get(0));
+            scn.popup.hide(elm, elmViewModel.enteredAny());
+        },
+
+        enterChallengeOpponentsPopup.showJoinLiveGamePopup = function () {
+            var viewModel = scn.popup.getViewModel(this);
+            var elm = jQuery(this);
+            var parent = elm.parents("#popup:first");
+
+            scn.popup.show("JoinGamePopup", {
+                viewModel: {
+                    bowlingGameId: viewModel.bowlingGameId,
+                    competitionType: "Live"
+                },
+                height: "auto",
+                callback: function (competitionGame) {
+                    // TODO refactor
+                    if (competitionGame) {
+                        viewModel.inGameScreenViewModel.liveCompetitionId(competitionGame.liveBowlingCompetitionGroup.liveBowlingCompetition.id);
+                        viewModel.inGameScreenViewModel.waitingForLiveCompetitionApproval(true);
+                        viewModel.inGameScreenViewModel.liveCompetitionRejected(false);
+
+                        jQuery("#enter-challenge-opponents-popup-live-enter", parent).addClass("hidden");
+                        jQuery("#enter-challenge-opponents-popup-live-entered", parent).removeClass("hidden");
+                        jQuery("#enter-challenge-opponents-popup-join-enter", parent).addClass("hidden");
+                        jQuery("#enter-challenge-opponents-popup-join-entered", parent).removeClass("hidden");
+
+                        scn.views.inGameScreen.loadLiveCompetition(viewModel.inGameScreenViewModel);
+
+                        var elmViewModel = ko.dataFor(elm.get(0));
+                        elmViewModel.enteredAny(true);
+                    }
+                }
+            });
+        },
+
+        enterChallengeOpponentsPopup.showCreateLiveGamePopup = function () {
+            var viewModel = scn.popup.getViewModel(this);
+            var elm = jQuery(this);
+            var parent = elm.parents("#popup:first");
+
+            if (scn.hasSession()) {
+                scn.popup.show("CreateGamePopup", {
+                    callback: function (returnViewModel) {
+                        if (returnViewModel) {
+                            jQuery("#enter-challenge-opponents-popup-live-enter", parent).addClass("hidden");
+                            jQuery("#enter-challenge-opponents-popup-live-entered", parent).removeClass("hidden");
+                            jQuery("#enter-challenge-opponents-popup-join-enter", parent).addClass("hidden");
+                            jQuery("#enter-challenge-opponents-popup-join-entered", parent).removeClass("hidden");
+
+                            scn.views.inGameScreen.createGamePopupCallback.call(this, returnViewModel);
+
+                            var elmViewModel = ko.dataFor(elm.get(0));
+                            elmViewModel.enteredAny(true);
+                        }
+                    },
+                    viewModel: {
+                        bowlingGameId: viewModel.bowlingGameId,
+                        competitionType: "Live"
+                    },
+                    height: "auto"
+                });
+            }
+        },
+
+        enterChallengeOpponentsPopup.showPostedPopup = function () {
+            var that = this;
+            var viewModel = scn.popup.getViewModel(this);
+            scn.popup.show("AddOpponentPopup", {
+                viewModel: {
+                    bowlingGameId: viewModel.bowlingGameId,
+                    competitionType: "Posted"
+                },
+                callback: function (callbackData) {
+                    //scn.showLoading();
+                    scn.views.inGameScreen.loadChallengers(viewModel.inGameScreenViewModel, function () {
+                        //scn.hideLoading();
+                    });
+
+                    if (callbackData) {
+                        jQuery(that).text("ENTER MORE");
+                    }
+                },
+                height: "auto"
+            });
+        }
+
+    }(window.scn.views.enterChallengeOpponentsPopup = window.scn.views.enterChallengeOpponentsPopup || {}));
+</script>
+
+<div id="popup" data-load="scn.views.enterChallengeOpponentsPopup.load" style="height: 275px;">
+    <div class="popup-header">
+        <div class="centered-container">
+            <span>Head 2 Head</span>
+        </div>
+    </div>
+
+    <div id="challenge-popup-all" style="width:100%;">
+        <div class="select-a-challenge-container">
+            <div>
+                <p class="single-line">
+                    Legends Made Here!
+                 </p>
+            
+                <div class="challenge-more-credits-container">
+                    <div class="coin-plus-credits-container">
+                    
+                        <div class="xcoin">
+                            <img src="xcoin.png" /></div>
+                        <div class="footer-inset-numeric credits" id="enter-challenge-opponents-credits" data-autoupdate="credits"></div>
+                    </div>
+                </div>
+
+                <button class="green-buy-button no-float" data-popup="BuyMoreCredits" data-popup-height="auto">
+                    <span class="call-to-action">Buy Credits</span>
+                </button> 
+            </div>
+        </div>
+
+        <div class="all-challenge-container" id="enter-challenge-popup-opponents-scroller">
+            <div>
+                <div style="width: 425px; margin: auto;">
+                    <div class="single-challenge-container" data-popup="LiveGameInfoPopup" data-popup-height="auto" data-tap-alloweventbubble="true">
+
+                        <div class="challenge-icon green-challenge-button">
+                            <div class="icon challenge-live-games"></div>
+                        </div>
+
+
+                        <div class="challenge-desc-container challenge-desc-container-wide">
+                            <h1>New Live Game</h1>
+                            <p>Start a new game to compete live</p>
+                        </div>
+
+
+                        <div class="buy-challenge-container" id="enter-challenge-opponents-popup-live-enter">
+                            <button class="clean-gray" data-tap="scn.views.enterChallengeOpponentsPopup.showCreateLiveGamePopup">
+                                ENTER
+                            </button>
+                        </div>
+                        <div class="buy-challenge-container purchased-challenge-info hidden" id="enter-challenge-opponents-popup-live-entered">
+                            ENTERED
+                        </div>
+                    </div>
+
+                    <div class="single-challenge-container" data-popup="JoinGameInfoPopup" data-popup-height="auto" data-tap-alloweventbubble="true">
+
+                        <div class="challenge-icon green-challenge-button">
+                            <div class="icon challenge-live-games"></div>
+                        </div>
+
+
+                        <div class="challenge-desc-container challenge-desc-container-wide">
+                            <h1>Join Live Game</h1>
+                            <p>Ask to join an existing game to compete live</p>
+                        </div>
+
+
+                        <div class="buy-challenge-container" id="enter-challenge-opponents-popup-join-enter">
+                            <button class="clean-gray" data-tap="scn.views.enterChallengeOpponentsPopup.showJoinLiveGamePopup">
+                                ENTER
+                            </button>
+                        </div>
+                         <div class="buy-challenge-container purchased-challenge-info hidden" id="enter-challenge-opponents-popup-join-entered">
+                            ENTERED
+                        </div>
+                    </div>
+
+                    <div class="single-challenge-container no-border" data-popup="PostedGameInfoPopup" data-popup-height="auto" data-tap-alloweventbubble="true">
+
+                        <div class="challenge-icon purple-challenge-button">
+                            <div class="icon challenge-head2head"></div>
+                        </div>
+
+
+                        <div class="challenge-desc-container challenge-desc-container-wide">
+                            <h1>Challenge Posted Game</h1>
+                            <p>Play against previously completed games</p>
+                        </div>
+
+                        <div class="buy-challenge-container" id="enter-challenge-opponents-popup-posted-enter">
+                            <button class="clean-gray" data-tap="scn.views.enterChallengeOpponentsPopup.showPostedPopup" data-bind="text: enteredAnyPosted() ? 'ENTER MORE' : 'ENTER'">
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="button-container" style="clear: both; float: right; margin-top:30px !important; margin-right: 10px;" data-tap="scn.views.enterChallengeOpponentsPopup.backToChallenges">
+                        <div style="margin: auto;" class="in-game-button green-general-button" >
+                            <span style="padding-left: 25px; padding-right: 25px;">Done</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

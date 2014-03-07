@@ -1,0 +1,384 @@
+<script type="text/javascript">
+    (function (inGameScreen) {
+        inGameScreen.laneCheckoutId = 0,
+        inGameScreen.currentGame = null,
+        inGameScreen.lastFrameNumber = 0,
+        inGameScreen.loadingUpdate = false,
+
+        inGameScreen.load = function () {
+            var viewParams = scn.viewEngine.getViewIdFromHash();
+
+            inGameScreen.laneCheckoutId = viewParams.params.laneCheckout;
+
+            var elm = jQuery(this);
+
+            var inGameTitle = jQuery("#in-game-title", elm);
+            inGameTitle.text(viewParams.params.venueName);
+
+            var laneSpan = jQuery("<span />")
+                .text(" Lane " + viewParams.params.lane);
+            inGameTitle.append(laneSpan);
+
+            inGameScreen.update();
+            scn.viewEngine.registerInterval(
+                "inGameUpdate",
+                setInterval(inGameScreen.update, 7000));
+            
+            scn.viewEngine.registerInterval(
+                "inGamMessages",
+                setInterval(inGameScreen.getMessages, 7000));
+
+            var glow = jQuery('.pulsating-glow');
+            scn.viewEngine.registerInterval("suggested-challenge-glow", setInterval(function () {
+                    glow.hasClass('glow') ? glow.removeClass('glow') : glow.addClass('glow');
+                }, 2000)
+            );
+        },
+
+        inGameScreen.update = function () {
+            if (inGameScreen.loadingUpdate)
+                return;
+
+            inGameScreen.loadingUpdate = true;
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "lanecheckout/" + inGameScreen.laneCheckoutId + "/bowlinggameview",
+                type: "GET",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    scn.hideLoading();
+                    inGameScreen.loadingUpdate = false;
+
+                    var throws = data.bowlingThrows;
+
+                    var frameNumber = 1;
+                    if (throws.length > 0) {
+                        var lastThrow = throws[throws.length - 1];
+
+                        frameNumber = lastThrow.squareNumber == 21 ? 10 : Math.ceil(lastThrow.squareNumber / 2.0);
+
+                        // handle standing pins
+                        // first show all if the first frame, then check each one by one
+                        var showAllInterval = 1000;
+                        if (lastThrow.isFirstThrowOfFrame && inGameScreen.lastFrameNumber != frameNumber) {
+                            inGameScreen.showAllPins();
+                            showAllInterval = 0;
+                        }
+
+                        setTimeout(function () {
+                            inGameScreen.checkPin(lastThrow, 1);
+                            inGameScreen.checkPin(lastThrow, 2);
+                            inGameScreen.checkPin(lastThrow, 3);
+                            inGameScreen.checkPin(lastThrow, 4);
+                            inGameScreen.checkPin(lastThrow, 5);
+                            inGameScreen.checkPin(lastThrow, 6);
+                            inGameScreen.checkPin(lastThrow, 7);
+                            inGameScreen.checkPin(lastThrow, 8);
+                            inGameScreen.checkPin(lastThrow, 9);
+                            inGameScreen.checkPin(lastThrow, 10);
+                        }, showAllInterval);
+
+                        inGameScreen.lastFrameNumber = frameNumber;
+                    }
+
+                    var frameNumberSuffix = "";
+                    if (frameNumber == 1) {
+                        frameNumberSuffix = "st";
+                    } else if (frameNumber == 2) {
+                        frameNumberSuffix = "nd";
+                    } else if (frameNumber == 3) {
+                        frameNumberSuffix = "rd";
+                    } else if (frameNumber >= 4) {
+                        frameNumberSuffix = "th";
+                    }
+
+                    jQuery("#frame-number").html(frameNumber + "<sup>" + frameNumberSuffix + "</sup>");
+
+                    var game = data.bowlingGame;
+                    inGameScreen.currentGame = game;
+                    jQuery("#current-score").text(game.score);
+
+                    var suggestedChallengeElm = jQuery("#suggested-challenge");
+                    var suggestedChallenge = data.suggestedChallenge;
+                    if (suggestedChallenge != null) {
+                        suggestedChallengeElm.removeClass("hidden").addClass("animated bounceIn");
+                        ko.applyBindings(suggestedChallenge, suggestedChallengeElm.get(0));
+                    } else {
+                        suggestedChallengeElm.addClass("hidden");
+                    }
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+                    inGameScreen.loadingUpdate = false;
+                }
+            });
+        },
+
+        inGameScreen.getMessages = function () {
+            scn.ajax({
+                url: scn.apiAddress + "usernotification",
+                type: "GET",
+                data: {},
+                dataType: "json",
+                success: function (data) {
+                    for (var i = 0; i < data.length; i++) {
+                        alert(data[i].message);
+                    }
+                },
+                error: function (jqXhr, status) {
+                }
+            });
+        },
+
+        inGameScreen.checkPin = function (throwObj, pinNumber) {
+            var pinBitMask = Math.pow(2, pinNumber - 1);
+            if ((throwObj.standingPins & pinBitMask) != pinBitMask) {
+                inGameScreen.hidePin(pinNumber);
+            } else {
+                inGameScreen.showPin(pinNumber);
+            }
+        }
+
+        inGameScreen.getPinElement = function (pinNumber) {
+            return jQuery(".pin-graphic[data-pin='" + pinNumber + "']");
+        },
+
+        inGameScreen.hidePin = function (pinNumber) {
+            var pinElm = inGameScreen.getPinElement(pinNumber);
+            var placementElm = jQuery(".pin-placement[data-pin='" + pinNumber + "']");
+            if (placementElm.length == 0) {
+                placementElm = jQuery("<div />")
+                    .addClass("pin-placement")
+                    .attr("data-pin", pinNumber)
+                    .insertAfter(pinElm);
+            }
+
+            if (pinElm.attr("data-showing")) {
+                pinElm.removeClass("fadeIn")
+                  .addClass("animated")
+                  .addClass("fadeOut")
+                  .attr("data-showing", false);
+            }
+        },
+
+        inGameScreen.showPin = function (pinNumber) {
+            var placementElm = jQuery(".pin-placement[data-pin='" + pinNumber + "']");
+            if (placementElm) {
+                placementElm.detach();
+            }
+
+            var pinElm = inGameScreen.getPinElement(pinNumber);
+            if (!pinElm.attr("data-showing")) {
+                pinElm.removeClass("fadeOut")
+                      .addClass("animated")
+                      .addClass("fadeIn")
+                      .attr("data-showing", true);
+            }
+        },
+
+        inGameScreen.showAllPins = function () {
+            jQuery(".pin-graphic")
+                .removeClass("fadeOut")
+                .addClass("animated")
+                .addClass("fadeIn")
+                .attr("data-showing", true);
+
+            var placementElm = jQuery("[data-pin]");
+            placementElm.detach();
+        },
+
+        inGameScreen.suggestedChallengeTap = function (e) {
+            cancelEvent(e.originalEvent);
+
+            var elm = jQuery(this);
+
+            // enter the challenge
+            var challengeEntry = {
+                challenge: ko.dataFor(this.element),
+                bowlingGame: inGameScreen.currentGame
+            };
+
+            scn.showLoading();
+
+            scn.ajax({
+                url: scn.apiAddress + "bowlingchallenge/enter",
+                type: "POST",
+                data: challengeEntry,
+                success: function (data) {
+                    scn.hideLoading();
+
+                    jQuery("#suggested-challenge").addClass("hidden");
+                    jQuery("#suggested-challenge-entered").removeClass("hidden");
+
+                    scn.views.header.increaseCredits(-challengeEntry.challenge.creditCost);
+
+                    setTimeout(function () {
+                        jQuery("#suggested-challenge-entered").removeClass("bounceIn").addClass("fadeOut");
+                    }, 5000);
+                },
+                error: function (jqXhr, status) {
+                    scn.hideLoading();
+
+                    if (jqXhr.status == 409) {
+                        alert("You are already entered into this challenge!");
+                    } else {
+                        alert("An error occurred while entering you into this challenge.  Please try again.");
+                    }
+                }
+            });
+
+        }
+    }(window.scn.views.inGameScreen = window.scn.views.inGameScreen || {}));
+</script>
+<span data-template="Header"></span>
+
+<style type="text/css">
+    .pin-row {
+        display: block;
+        margin: auto;
+    }
+
+    .pin-row:nth-child(2) {
+        width: 135px;
+    }
+
+    .pin-row:nth-child(3) {
+        width: 110px;
+    }
+
+     .pin-row:nth-child(4) {
+        width: 75px;
+    }
+
+    .pin-graphic, .pin-placement {
+        background-image: url("game-pin.png");
+        background-repeat: no-repeat;
+        background-position: center;
+        float: left;
+        margin-top: -95px;
+    }
+
+    .pin-placement {
+        background-image: url("game-pin-placement-single.png");
+    }
+
+    .pin-row:nth-child(1) > .pin-graphic {
+        width: 40px;
+        height: 110px;
+        background-size: 40px 110px;
+        margin-left: 2px;
+        margin-right: 2px;
+    }
+
+    .pin-row:nth-child(2) > .pin-graphic {
+        width: 40px;
+        height: 120px;
+        background-size: 40px 120px;
+    }
+
+    .pin-row:nth-child(3) > .pin-graphic {
+        width: 46px;
+        height: 125px;
+        background-size: 46px 130px;
+    }
+
+    .pin-row:nth-child(4) > .pin-graphic {
+        width: 57px;
+        height: 160px;
+        background-size: 57px 160px;
+    }
+
+    .pin-row:nth-child(1) > .pin-graphic {
+        margin-top: 0;
+    }
+
+        .pin-row:nth-child(1) > .pin-placement,
+    .pin-row:nth-child(2) > .pin-placement,
+    .pin-row:nth-child(3) > .pin-placement,
+    .pin-row:nth-child(4) > .pin-placement {
+        width: 15px;
+        height: 7px;
+        background-size: 15px 7px;
+        background-position: bottom left;
+        margin-left: -25px;
+    }
+
+    .pin-row:nth-child(1) > .pin-placement {
+        margin-top: 50px;
+    }
+
+    .pin-row:nth-child(2) > .pin-placement {
+        margin-top: -30px;
+    }
+
+    .pin-row:nth-child(3) > .pin-placement {
+        margin-top: -25px;
+    }
+
+    .pin-row:nth-child(4) > .pin-placement {
+        margin-top: -20px;
+    }
+
+
+</style>
+
+<div id="content" class="font-interstate" data-load="scn.views.inGameScreen.load">
+    <div class="animated screen-title" id="in-game-title"></div>
+
+    <div id="ingame-container">
+        <div class="live-pins-container">
+            <div class="pins">
+                <div class="pin-row">
+                    <div class="pin-graphic" data-showing="true" data-pin="10"></div>
+                    <div class="pin-graphic" data-showing="true" data-pin="9"></div>
+                    <div class="pin-graphic" data-showing="true" data-pin="8"></div>
+                    <div class="pin-graphic" data-showing="true" data-pin="7"></div>
+                </div>
+                <div class="pin-row">
+                    <div class="pin-graphic" data-showing="true" data-pin="6"></div>
+                    <div class="pin-graphic" data-showing="true" data-pin="5"></div>
+                    <div class="pin-graphic" data-showing="true" data-pin="4"></div>
+                </div>
+                <div class="pin-row">
+                    <div class="pin-graphic" data-showing="true" data-pin="3"></div>
+                    <div class="pin-graphic" data-showing="true" data-pin="2"></div>
+                </div>
+                <div class="pin-row">
+                    <div class="pin-graphic" data-showing="true" data-pin="1"></div>
+                </div>
+            </div>
+            <div class="frame-info"><span id="frame-number"></span> Frame</div>
+            <div class="score">Score: <span id="current-score"></span></div>
+        </div>
+        <div id="suggested-challenge-container" data-bind="foreach: challenge">
+            <div id="suggested-challenge" class="live-challenge-container partial-rounded pre-glow pulsating-glow animated bounceIn" data-bind="{ tap: scn.views.inGameScreen.suggestedChallengeTap }">
+                <div class="live-challenge-name" id="suggested-challenge-name" data-bind="{ text: name }"></div>
+                <div class="live-challenge-icon"><img src="challenge-lucky-strike.png"></div>
+                <div class="live-challenge-info">
+                    <div class="enter-container">
+                        <div class="enter-text">Enter for <span id="suggested-challenge-credits" data-bind="{ text: creditCost }"></span></div>
+                        <div class="challenge-coin">
+                            <img src="challenge-coin.png">
+                        </div>
+                    </div>
+                    <div class="rewards">Rewards <span id="suggested-challenge-points" data-bind="{ text: maxPoints }"></span><span> pts!</span></div>
+                </div>
+            </div>
+        </div>
+        <div id="suggested-challenge-entered" class="live-challenge-container partial-rounded animated bounceIn hidden">
+            <div class="live-challenge-name" id="Div1">You have been entered into the challenge!<br /><br /><span>Good luck!</span></div>
+        </div>
+        <div id="message-container" class="live-challenge-container partial-rounded animated bounceIn hidden">
+            <div class="live-challenge-name" id="message"></div>
+        </div>
+    </div>
+
+
+</div>
+
+<div id="footer" class="pre-bowl-footer font-interstate">
+     
+ </div>
